@@ -1,0 +1,6 @@
+@media print {
+  .no-print, nav, .sidebar, .btn, footer { display: none !important; }
+  body { background: #fff; font-size: 11pt; }
+  .card { box-shadow: none; border: 1px solid #e2e8f0; }
+  @page { size: A4; margin: 20mm; }
+}

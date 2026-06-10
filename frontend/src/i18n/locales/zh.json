@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "home": "首页",
+    "survey": "填写问卷",
+    "result": "查看结果",
+    "login": "管理员登录"
+  },
+  "landing": {
+    "hero_title": "中国文化课程评估系统",
+    "hero_subtitle": "基于CIPP方法，提升印度尼西亚高校中国文化课程的教学质量",
+    "start_survey": "开始问卷",
+    "view_result": "查看我的结果",
+    "stats_universities": "所大学",
+    "stats_respondents": "位受访者",
+    "stats_courses": "门课程已评估"
+  },
+  "survey": {
+    "select_title": "选择课程",
+    "select_university": "大学",
+    "select_program": "专业",
+    "select_course": "课程",
+    "select_role": "您的身份",
+    "select_language": "问卷语言",
+    "role_dosen": "授课教师",
+    "role_mahasiswa": "学生",
+    "lang_id": "印尼语",
+    "lang_zh": "中文",
+    "next": "下一步",
+    "prev": "上一步",
+    "submit": "提交问卷",
+    "consent_title": "参与同意书",
+    "consent_text": "您提供的数据是匿名的，仅用于教育评估研究。不会公开任何个人身份信息。",
+    "consent_agree": "我同意并继续",
+    "progress_step": "第 {current} 步，共 {total} 步",
+    "step_context": "背景",
+    "step_input": "投入",
+    "step_process": "过程",
+    "step_product": "成果",
+    "step_profile": "个人信息",
+    "likert_1": "非常不同意",
+    "likert_2": "不同意",
+    "likert_3": "中立",
+    "likert_4": "同意",
+    "likert_5": "非常同意",
+    "thankyou_title": "感谢您！",
+    "thankyou_desc": "您的问卷已成功提交。请保存以下匿名代码以查看您的结果：",
+    "copy_code": "复制代码",
+    "copied": "已复制！"
+  },
+  "result": {
+    "title": "问卷结果",
+    "enter_code": "输入匿名代码",
+    "code_placeholder": "SIN-2025-XXXX",
+    "search": "查看结果",
+    "cipp_score": "CIPP评分",
+    "open_answers": "开放性回答",
+    "download_pdf": "下载PDF"
+  },
+  "auth": {
+    "login_title": "管理员登录",
+    "email": "邮箱",
+    "password": "密码",
+    "login_btn": "登录",
+    "logout": "退出"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "发生错误",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "add": "添加",
+    "search": "搜索",
+    "required_field": "必填项",
+    "placeholder_select": "-- 请选择 --"
+  }
+}

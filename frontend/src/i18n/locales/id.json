@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "home": "Beranda",
+    "survey": "Isi Kuesioner",
+    "result": "Lihat Hasil",
+    "login": "Masuk Admin"
+  },
+  "landing": {
+    "hero_title": "Sistem Evaluasi Mata Kuliah Budaya Tiongkok",
+    "hero_subtitle": "Evaluasi berbasis CIPP untuk meningkatkan kualitas pembelajaran budaya Tiongkok di perguruan tinggi Indonesia",
+    "start_survey": "Mulai Kuesioner",
+    "view_result": "Lihat Hasil Saya",
+    "stats_universities": "Universitas",
+    "stats_respondents": "Responden",
+    "stats_courses": "Mata Kuliah Dievaluasi"
+  },
+  "survey": {
+    "select_title": "Pilih Mata Kuliah",
+    "select_university": "Universitas",
+    "select_program": "Program Studi",
+    "select_course": "Mata Kuliah",
+    "select_role": "Peran Anda",
+    "select_language": "Bahasa Kuesioner",
+    "role_dosen": "Dosen Pengajar",
+    "role_mahasiswa": "Mahasiswa",
+    "lang_id": "Bahasa Indonesia",
+    "lang_zh": "中文",
+    "next": "Lanjut",
+    "prev": "Kembali",
+    "submit": "Kirim Kuesioner",
+    "consent_title": "Persetujuan Partisipasi",
+    "consent_text": "Data yang Anda berikan bersifat anonim dan hanya digunakan untuk keperluan penelitian evaluasi pendidikan. Tidak ada data identitas yang akan dipublikasikan.",
+    "consent_agree": "Saya setuju dan ingin melanjutkan",
+    "progress_step": "Langkah {current} dari {total}",
+    "step_context": "Konteks",
+    "step_input": "Masukan",
+    "step_process": "Proses",
+    "step_product": "Produk",
+    "step_profile": "Profil",
+    "likert_1": "Sangat Tidak Setuju",
+    "likert_2": "Tidak Setuju",
+    "likert_3": "Netral",
+    "likert_4": "Setuju",
+    "likert_5": "Sangat Setuju",
+    "thankyou_title": "Terima Kasih!",
+    "thankyou_desc": "Kuesioner Anda telah berhasil disimpan. Simpan kode anonim berikut untuk melihat hasil Anda:",
+    "copy_code": "Salin Kode",
+    "copied": "Tersalin!"
+  },
+  "result": {
+    "title": "Hasil Kuesioner",
+    "enter_code": "Masukkan Kode Anonim",
+    "code_placeholder": "SIN-2025-XXXX",
+    "search": "Lihat Hasil",
+    "cipp_score": "Skor CIPP",
+    "open_answers": "Jawaban Terbuka",
+    "download_pdf": "Unduh PDF"
+  },
+  "auth": {
+    "login_title": "Masuk Admin",
+    "email": "Email",
+    "password": "Kata Sandi",
+    "login_btn": "Masuk",
+    "logout": "Keluar"
+  },
+  "common": {
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Edit",
+    "add": "Tambah",
+    "search": "Cari",
+    "required_field": "Wajib diisi",
+    "placeholder_select": "-- Pilih --"
+  }
+}
