@@ -10,6 +10,7 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
     user: "UserInfo"
@@ -21,6 +22,7 @@ class UserInfo(BaseModel):
     full_name: str
     role: str
     university_id: Optional[int] = None
+    program_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

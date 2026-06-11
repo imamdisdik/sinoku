@@ -68,4 +68,5 @@ export interface UserInfo {
   full_name: string
   role: string
   university_id: number | null
+  program_id: number | null
 }
