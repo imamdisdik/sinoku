@@ -99,7 +99,11 @@ const showModal = ref(false)
 const showConfirm = ref(false)
 const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
-const defaultForm = () => ({ program_id: 0, kode_cpl: '', deskripsi_id: '', deskripsi_zh: '', kategori: 'pengetahuan' })
+// Auto-fill program_id dari filter yang aktif
+const defaultForm = () => ({
+  program_id: (filterProgram.value as number) || 0,
+  kode_cpl: '', deskripsi_id: '', deskripsi_zh: '', kategori: 'pengetahuan',
+})
 const form = ref(defaultForm())
 
 async function fetchData() {
@@ -116,7 +120,12 @@ onMounted(async () => {
   programList.value = res.data.data
 })
 
-function openCreate() { editing.value = null; form.value = defaultForm(); showModal.value = true }
+function openCreate() {
+  editing.value = null
+  // Auto-set program_id dari filter aktif agar user tidak perlu pilih ulang
+  form.value = defaultForm()
+  showModal.value = true
+}
 function openEdit(c: any) { editing.value = c; form.value = { ...c }; showModal.value = true }
 function confirmDelete(c: any) { deleteTarget.value = c; showConfirm.value = true }
 

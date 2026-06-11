@@ -203,6 +203,14 @@ async def delete_course(cid: int, db: AsyncSession = Depends(get_db), _=Depends(
     await db.commit()
 
 
+@router.get("/courses/{cid}/cpls", response_model=list[int])
+async def get_course_cpls(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    rows = (await db.execute(
+        select(CourseCplMapping.cpl_id).where(CourseCplMapping.course_id == cid)
+    )).scalars().all()
+    return rows
+
+
 @router.post("/courses/{cid}/cpls", status_code=201)
 async def map_course_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
     c = await db.get(Course, cid)
@@ -331,6 +339,14 @@ async def delete_cpmk(cid: int, db: AsyncSession = Depends(get_db), _=Depends(re
         raise HTTPException(404, "CPMK tidak ditemukan")
     await db.delete(cpmk)
     await db.commit()
+
+
+@router.get("/cpmks/{cid}/cpls", response_model=list[int])
+async def get_cpmk_cpls(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    rows = (await db.execute(
+        select(CpmkCplMapping.cpl_id).where(CpmkCplMapping.cpmk_id == cid)
+    )).scalars().all()
+    return rows
 
 
 @router.post("/cpmks/{cid}/cpls", status_code=201)
