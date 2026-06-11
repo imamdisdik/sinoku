@@ -75,14 +75,14 @@
               <label>{{ editing ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password *' }}</label>
               <input v-model="form.password" type="password" :required="!editing" class="form-input" autocomplete="new-password" />
             </div>
-            <div class="form-group" v-if="!editing && auth.isSuperadmin">
+            <div class="form-group" v-if="!editing && isSuperadmin">
               <label>Role *</label>
               <select v-model="form.role" required class="form-input">
                 <option value="admin">Admin Universitas</option>
                 <option value="dosen">Dosen</option>
               </select>
             </div>
-            <div class="form-group" v-if="auth.isSuperadmin">
+            <div class="form-group" v-if="isSuperadmin">
               <label>Universitas</label>
               <select v-model.number="form.university_id" class="form-input">
                 <option :value="null">— Pilih Universitas —</option>
@@ -109,11 +109,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { getUsers, createUser, updateUser, toggleUserActive, getUniversities, getPrograms } from '@/api/admin'
 
 const auth = useAuthStore()
+const { user, isSuperadmin } = storeToRefs(auth)
 const ui = useUiStore()
 
 const rows = ref<any[]>([])
@@ -132,8 +134,8 @@ const defaultForm = () => ({
   full_name: '',
   email: '',
   password: '',
-  role: auth.isSuperadmin ? 'dosen' : 'dosen',
-  university_id: auth.isSuperadmin ? null : (auth.user?.university_id ?? null),
+  role: isSuperadmin ? 'dosen' : 'dosen',
+  university_id: isSuperadmin.value ? null : (user.value?.university_id ?? null),
   program_id: null as number | null,
 })
 const form = ref(defaultForm())

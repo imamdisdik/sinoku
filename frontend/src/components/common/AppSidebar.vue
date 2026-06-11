@@ -6,10 +6,10 @@
     </div>
 
     <!-- Info user yang sedang login -->
-    <div class="sidebar-user" v-if="auth.user">
+    <div class="sidebar-user" v-if="user">
       <div class="user-avatar">{{ initials }}</div>
       <div class="user-info">
-        <div class="user-name">{{ auth.user.full_name }}</div>
+        <div class="user-name">{{ user.full_name }}</div>
         <div class="user-role">{{ roleLabel }}</div>
       </div>
     </div>
@@ -23,7 +23,7 @@
       <!-- Akademik: superadmin & admin bisa kelola semua, dosen hanya lihat MK -->
       <div class="nav-group">
         <span class="nav-group-label">Akademik</span>
-        <template v-if="!auth.isDosen">
+        <template v-if="!isDosen">
           <router-link to="/admin/universities" class="nav-item">&#127979; Universitas</router-link>
           <router-link to="/admin/programs" class="nav-item">&#128218; Program Studi</router-link>
         </template>
@@ -45,12 +45,12 @@
         <router-link to="/admin/reports" class="nav-item">&#128221; Laporan Diagnostik</router-link>
       </div>
 
-      <div class="nav-group" v-if="!auth.isDosen">
+      <div class="nav-group" v-if="!isDosen">
         <span class="nav-group-label">Manajemen</span>
         <router-link to="/admin/users" class="nav-item">&#128100; Kelola Akun</router-link>
       </div>
 
-      <div class="nav-group" v-if="auth.isDosen">
+      <div class="nav-group" v-if="isDosen">
         <span class="nav-group-label">Evaluasi Saya</span>
         <router-link to="/survey/dosen" class="nav-item">&#128203; Isi Evaluasi</router-link>
       </div>
@@ -64,14 +64,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 
 const auth = useAuthStore()
+const { user, isDosen, isSuperadmin } = storeToRefs(auth)
 const router = useRouter()
 
 const initials = computed(() => {
-  const name = auth.user?.full_name ?? ''
+  const name = user.value?.full_name ?? ''
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 })
 
@@ -81,7 +83,7 @@ const roleLabel = computed(() => {
     admin: 'Admin',
     dosen: 'Dosen',
   }
-  return map[auth.user?.role ?? ''] ?? auth.user?.role ?? ''
+  return map[user.value?.role ?? ''] ?? user.value?.role ?? ''
 })
 
 async function doLogout() {
