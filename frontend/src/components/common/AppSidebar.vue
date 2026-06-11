@@ -44,6 +44,16 @@
         <router-link to="/admin/rps" class="nav-item">&#128196; RPS</router-link>
         <router-link to="/admin/reports" class="nav-item">&#128221; Laporan Diagnostik</router-link>
       </div>
+
+      <div class="nav-group" v-if="!auth.isDosen">
+        <span class="nav-group-label">Manajemen</span>
+        <router-link to="/admin/users" class="nav-item">&#128100; Kelola Akun</router-link>
+      </div>
+
+      <div class="nav-group" v-if="auth.isDosen">
+        <span class="nav-group-label">Evaluasi Saya</span>
+        <router-link to="/survey/dosen" class="nav-item">&#128203; Isi Evaluasi</router-link>
+      </div>
     </nav>
 
     <div class="sidebar-footer">

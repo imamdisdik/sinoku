@@ -11,6 +11,7 @@ export const useSurveyStore = defineStore('survey', () => {
   const responseId = ref<string | null>(null)
   const respondentId = ref<string | null>(null)
   const anonymousCode = ref<string | null>(null)
+  const isDosen = ref(false)
 
   // Konteks yang dipilih
   const selectedUniversity = ref<University | null>(null)
@@ -73,11 +74,20 @@ export const useSurveyStore = defineStore('survey', () => {
     }
   }
 
+  function initFromServer(data: { response_id: string; respondent_id: string | null; role: string; bahasa: string; isDosen?: boolean }) {
+    responseId.value = data.response_id
+    respondentId.value = data.respondent_id
+    selectedRole.value = data.role as 'dosen' | 'mahasiswa'
+    selectedBahasa.value = data.bahasa as 'id' | 'zh'
+    isDosen.value = data.isDosen ?? false
+  }
+
   function reset() {
     currentStep.value = 'selector'
     responseId.value = null
     respondentId.value = null
     anonymousCode.value = null
+    isDosen.value = false
     selectedUniversity.value = null
     selectedProgram.value = null
     selectedCourse.value = null
@@ -89,10 +99,10 @@ export const useSurveyStore = defineStore('survey', () => {
   }
 
   return {
-    currentStep, responseId, respondentId, anonymousCode,
+    currentStep, responseId, respondentId, anonymousCode, isDosen,
     selectedUniversity, selectedProgram, selectedCourse, selectedRole, selectedBahasa,
     answers, openAnswers, stepData,
     setAnswer, setOpenAnswer, getAnswersForStep, getOpenAnswersForSubmit,
-    goToStep, nextStep, prevStep, reset,
+    goToStep, nextStep, prevStep, reset, initFromServer,
   }
 })

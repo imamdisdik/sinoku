@@ -6,11 +6,23 @@
         {{ t('survey.thankyou_title') }}
       </h1>
       <p style="color:#718096; margin-bottom:28px;">{{ t('survey.thankyou_desc') }}</p>
-      <AnonymousCodeCard v-if="survey.anonymousCode" :code="survey.anonymousCode" />
-      <div style="margin-top:24px; display:flex; gap:12px; justify-content:center;">
-        <RouterLink to="/result" class="btn btn-outline">{{ t('result.title') }}</RouterLink>
-        <RouterLink to="/" class="btn btn-primary">{{ t('nav.home') }}</RouterLink>
-      </div>
+      <!-- Mahasiswa: tampilkan kode anonim -->
+      <template v-if="!survey.isDosen">
+        <AnonymousCodeCard v-if="survey.anonymousCode" :code="survey.anonymousCode" />
+        <div style="margin-top:24px; display:flex; gap:12px; justify-content:center;">
+          <RouterLink to="/result" class="btn btn-outline">{{ t('result.title') }}</RouterLink>
+          <RouterLink to="/" class="btn btn-primary">{{ t('nav.home') }}</RouterLink>
+        </div>
+      </template>
+      <!-- Dosen: tombol kembali ke dashboard -->
+      <template v-else>
+        <p style="color:#4a5568; font-size:14px; margin-bottom:24px;">
+          Evaluasi Anda telah tersimpan dan dapat dilihat di dashboard.
+        </p>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <RouterLink to="/admin" class="btn btn-primary">Kembali ke Dashboard</RouterLink>
+        </div>
+      </template>
     </div>
   </div>
 </template>

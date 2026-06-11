@@ -47,3 +47,9 @@ export const mapCpmkCpls = (cpmkId: number, cpl_ids: number[]) =>
   api.post(`/admin/cpmks/${cpmkId}/cpls`, { cpl_ids })
 export const unmapCpmkCpl = (cpmkId: number, cplId: number) =>
   api.delete(`/admin/cpmks/${cpmkId}/cpls/${cplId}`)
+
+// User Management (UC-AD-02)
+export const getUsers = (params?: object) => api.get('/admin/users', { params })
+export const createUser = (data: object) => api.post('/admin/users', data)
+export const updateUser = (id: string, data: object) => api.put(`/admin/users/${id}`, data)
+export const toggleUserActive = (id: string) => api.patch(`/admin/users/${id}/toggle`)

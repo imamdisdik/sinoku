@@ -36,8 +36,12 @@ const router = createRouter({
         { path: 'anonymous-codes', name: 'admin-anon', component: () => import('@/views/admin/anonymous/AnonymousCodeList.vue') },
         { path: 'analytics', name: 'admin-analytics', component: () => import('@/views/admin/analytics/AnalyticsDashboard.vue') },
         { path: 'reports', name: 'admin-reports', component: () => import('@/views/admin/report/DiagnosticHistory.vue') },
+        { path: 'users', name: 'admin-users', component: () => import('@/views/admin/users/UserList.vue') },
       ],
     },
+
+    // DOSEN SURVEY (guard: harus login sebagai dosen)
+    { path: '/survey/dosen', name: 'survey-dosen', meta: { requiresAuth: true }, component: () => import('@/views/public/survey/SurveyDosenSelector.vue') },
 
     // 404
     { path: '/:pathMatch(.*)*', redirect: '/' },

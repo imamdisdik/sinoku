@@ -15,6 +15,9 @@ export const publicApi = {
   startSurvey: (body: Record<string, unknown>) =>
     client.post('/public/survey/start', body),
 
+  startSurveyDosen: (courseId: number, bahasa: string) =>
+    client.post('/public/survey/start-dosen', { course_id: courseId, bahasa }),
+
   getSurveyItems: (responseId: string, dimensi?: string) =>
     client.get(`/public/survey/${responseId}/items`, { params: { dimensi } }),
 
