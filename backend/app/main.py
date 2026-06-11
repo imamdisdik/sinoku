@@ -9,6 +9,8 @@ from app.routers.auth import router as auth_router
 from app.routers.public.landing import router as landing_router
 from app.routers.public.survey import router as survey_router
 from app.routers.public.result import router as result_router
+from app.routers.admin.academic import router as academic_router
+from app.routers.admin.dashboard import router as dashboard_router
 
 app = FastAPI(
     title="SINOKU API",
@@ -29,10 +31,12 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 API_PREFIX = "/api/v1"
-app.include_router(auth_router, prefix=API_PREFIX)
-app.include_router(landing_router, prefix=API_PREFIX)
-app.include_router(survey_router, prefix=API_PREFIX)
-app.include_router(result_router, prefix=API_PREFIX)
+app.include_router(auth_router,      prefix=API_PREFIX)
+app.include_router(landing_router,   prefix=API_PREFIX)
+app.include_router(survey_router,    prefix=API_PREFIX)
+app.include_router(result_router,    prefix=API_PREFIX)
+app.include_router(academic_router,  prefix=API_PREFIX)
+app.include_router(dashboard_router, prefix=API_PREFIX)
 
 
 @app.get("/health")
