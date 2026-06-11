@@ -4,7 +4,7 @@
       ← {{ t('survey.prev') }}
     </button>
     <slot />
-    <button class="btn btn-primary" @click="emit('next')" :disabled="isLast || loading">
+    <button class="btn btn-primary" @click="emit('next')" :disabled="loading || disabled">
       <span v-if="loading">{{ t('common.loading') }}</span>
       <span v-else-if="isLast">{{ t('survey.submit') }}</span>
       <span v-else>{{ t('survey.next') }} →</span>
@@ -15,7 +15,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-defineProps<{ isFirst?: boolean; isLast?: boolean; loading?: boolean }>()
+defineProps<{ isFirst?: boolean; isLast?: boolean; loading?: boolean; disabled?: boolean }>()
 const emit = defineEmits<{ prev: []; next: [] }>()
 </script>
 

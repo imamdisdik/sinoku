@@ -3,48 +3,51 @@
     <SurveyProgressBar current-step="B" />
     <div class="card" v-if="stepData">
       <h2 style="font-size:18px; font-weight:800; color:#1a365d; margin:0 0 24px;">
-        { stepData.nama_dimensi }
+        {{ stepData.nama_dimensi }}
       </h2>
 
       <div v-for="sd in stepData.sub_dimensions" :key="sd.id" class="sub-dim">
-        <h3 class="sub-dim__title">{ sd.kode } — { sd.nama }</h3>
+        <h3 class="sub-dim__title">{{ sd.kode }} — {{ sd.nama }}</h3>
         <div v-for="item in sd.items" :key="item.id" class="item-row">
           <div class="item-row__text">
-            <span class="item-row__num">{ item.nomor_urut }.</span>
-            { item.teks }
+            <span class="item-row__num">{{ item.nomor_urut }}.</span>
+            {{ item.teks }}
             <span class="item-required" v-if="item.is_required">*</span>
           </div>
-          <LikertScale v-model="survey.answers[item.id]" />
+          <LikertScale v-model="answers[item.id]" />
         </div>
       </div>
 
-      <!-- Pertanyaan terbuka hanya di step E (Product / terakhir) -->
       <div v-if="stepData.open_questions.length" class="open-section">
         <h3 class="sub-dim__title">Pertanyaan Terbuka</h3>
         <div v-for="q in stepData.open_questions" :key="q.id" class="form-group">
-          <label class="form-label">{ q.pertanyaan }<span class="item-required" v-if="q.is_required"> *</span></label>
-          <textarea class="form-input" rows="3" v-model="survey.openAnswers[q.id]" />
+          <label class="form-label">{{ q.pertanyaan }}<span class="item-required" v-if="q.is_required"> *</span></label>
+          <textarea class="form-input" rows="3" v-model="openAnswers[q.id]" />
         </div>
       </div>
+
+      <p v-if="!canProceed" class="validation-hint">* Harap isi semua pernyataan yang wajib sebelum melanjutkan.</p>
 
       <StepNavigation
         :is-first="false"
         :is-last="false"
         :loading="loading"
+        :disabled="!canProceed"
         @prev="goBack"
         @next="saveAndNext"
       />
     </div>
     <div v-else class="card" style="text-align:center; color:#718096;">
-      { t('common.loading') }
+      {{ t('common.loading') }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { storeToRefs } from 'pinia'
 import { useSurveyStore } from '@/stores/survey'
 import { useUiStore } from '@/stores/ui'
 import { publicApi } from '@/api/public'
@@ -57,7 +60,19 @@ const router = useRouter()
 const survey = useSurveyStore()
 const ui = useUiStore()
 const loading = ref(false)
-const stepData = survey.stepData
+const { stepData, answers, openAnswers } = storeToRefs(survey)
+
+const canProceed = computed(() => {
+  if (!stepData.value) return false
+  const likertOk = stepData.value.sub_dimensions
+    .flatMap(sd => sd.items)
+    .filter(item => item.is_required)
+    .every(item => answers.value[item.id] !== undefined)
+  const openOk = stepData.value.open_questions
+    .filter(q => q.is_required)
+    .every(q => !!openAnswers.value[q.id]?.trim())
+  return likertOk && openOk
+})
 
 onMounted(async () => {
   if (!survey.responseId) return router.push({ name: 'survey' })
@@ -74,13 +89,11 @@ function goBack() {
 }
 
 async function saveAndNext() {
-  if (!survey.responseId) return
+  if (!survey.responseId || !canProceed.value) return
   loading.value = true
   try {
     const items = survey.getAnswersForStep('B')
-    const openAnswers = []
-    await publicApi.saveAnswers(survey.responseId, { items, open_answers: openAnswers })
-    
+    await publicApi.saveAnswers(survey.responseId, { items, open_answers: [] })
     router.push({ name: 'survey-C' })
   } catch (e: any) {
     ui.showToast(e.response?.data?.detail || t('common.error'), 'error')
@@ -98,4 +111,5 @@ async function saveAndNext() {
 .item-row__num { font-weight: 700; color: #3182ce; margin-right: 6px; }
 .item-required { color: #e53e3e; margin-left: 4px; }
 .open-section { margin-top: 28px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+.validation-hint { color: #e53e3e; font-size: 13px; margin-top: 12px; }
 </style>

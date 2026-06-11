@@ -150,7 +150,7 @@ async def get_survey_items(response_id: str, dimensi: str | None = None, db: Asy
         dimensi=dimension.kode,
         nama_dimensi=dimension.nama_id if bahasa == "id" else dimension.nama_zh,
         sub_dimensions=sub_dims_out,
-        open_questions=open_questions if not dimensi else [],
+        open_questions=open_questions if (not dimensi or dimensi.upper() == 'E') else [],
     )
 
 
