@@ -5,6 +5,8 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 import hashlib
 from app.database import get_db
+from app.dependencies import get_optional_user
+from app.models.auth import User
 from app.models.academic import University, Program, Course
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem, OpenQuestion
 from app.models.respondent import (Respondent, RespondentCourseTaught, RespondentCourseTaken,
@@ -12,7 +14,7 @@ from app.models.respondent import (Respondent, RespondentCourseTaught, Responden
                                    RespondentMediaUsage, RespondentActivity)
 from app.models.response import Response, ResponseItem, ResponseOpenAnswer, AnonymousCode
 from app.schemas.academic import UniversityPublic, ProgramPublic, CoursePublic
-from app.schemas.respondent import SurveyStartRequest, SurveyStartResponse
+from app.schemas.respondent import SurveyStartRequest, SurveyStartResponse, DosenSurveyStartRequest
 from app.schemas.response import (AnswerRequest, AnswerResponse, SubmitResponse,
                                    SurveyItemsResponse, SubDimensionOut, ItemOut, OpenQuestionOut)
 from app.services.code_generator import generate_anonymous_code
@@ -40,6 +42,44 @@ async def list_courses(program_id: int, db: AsyncSession = Depends(get_db)):
         select(Course).where(Course.program_id == program_id, Course.is_active == True)
     )
     return {"data": [CoursePublic.model_validate(c) for c in result.scalars().all()]}
+
+
+@router.post("/survey/start-dosen", response_model=SurveyStartResponse, status_code=201)
+async def start_survey_dosen(
+    body: DosenSurveyStartRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_optional_user),
+):
+    """Start survey khusus dosen — profil diambil dari akun, tidak perlu isi form profil."""
+    if not current_user or current_user.role != "dosen":
+        raise HTTPException(status_code=403, detail="Endpoint ini hanya untuk dosen yang sudah login")
+
+    course = await db.get(Course, body.course_id)
+    if not course or not course.is_active:
+        raise HTTPException(status_code=404, detail="Mata kuliah tidak ditemukan")
+
+    raw_ip = request.client.host if request.client else ""
+    ip_hash = hashlib.sha256(raw_ip.encode()).hexdigest() if raw_ip else None
+
+    response = Response(
+        user_id=current_user.id,
+        respondent_id=None,
+        course_id=body.course_id,
+        role="dosen",
+        bahasa=body.bahasa,
+        ip_hash=ip_hash,
+    )
+    db.add(response)
+    await db.flush()
+    await db.commit()
+
+    return SurveyStartResponse(
+        response_id=response.id,
+        respondent_id=None,
+        role="dosen",
+        bahasa=body.bahasa,
+    )
 
 
 @router.post("/survey/start", response_model=SurveyStartResponse, status_code=201)

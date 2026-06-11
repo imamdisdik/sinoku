@@ -54,6 +54,12 @@ class SurveyStartRequest(BaseModel):
 
 class SurveyStartResponse(BaseModel):
     response_id: uuid.UUID
-    respondent_id: uuid.UUID
+    respondent_id: Optional[uuid.UUID] = None  # None untuk dosen (pakai user_id)
     role: str
     bahasa: str
+
+
+class DosenSurveyStartRequest(BaseModel):
+    """Request start survey untuk dosen — profil diambil dari JWT, tidak perlu form."""
+    course_id: int
+    bahasa: str  # id | zh

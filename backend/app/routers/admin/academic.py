@@ -85,10 +85,13 @@ async def list_programs(
     university_id: Optional[int] = None,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     q = select(Program)
-    if university_id:
+    # Scoping: admin hanya lihat prodi di univ sendiri
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        q = q.where(Program.university_id == current_user.university_id)
+    elif university_id:
         q = q.where(Program.university_id == university_id)
     if search:
         q = q.where(Program.nama.ilike(f"%{search}%"))
@@ -149,9 +152,16 @@ async def list_courses(
     search: Optional[str] = None,
     is_active: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     q = select(Course)
+    # Scoping: admin/dosen hanya lihat MK di univ sendiri (via join program)
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        q = q.join(Program, Course.program_id == Program.id).where(
+            Program.university_id == current_user.university_id
+        )
+        if current_user.role == "dosen" and current_user.program_id:
+            q = q.where(Course.program_id == current_user.program_id)
     if program_id:
         q = q.where(Course.program_id == program_id)
     if semester:
@@ -239,9 +249,14 @@ async def list_cpls(
     program_id: Optional[int] = None,
     kategori: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     q = select(Cpl)
+    # Scoping: admin/dosen hanya lihat CPL di univ sendiri (via join program)
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        q = q.join(Program, Cpl.program_id == Program.id).where(
+            Program.university_id == current_user.university_id
+        )
     if program_id:
         q = q.where(Cpl.program_id == program_id)
     if kategori:
@@ -294,9 +309,14 @@ async def delete_cpl(cid: int, db: AsyncSession = Depends(get_db), _=Depends(req
 async def list_cpmks(
     course_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     q = select(Cpmk)
+    # Scoping: admin/dosen hanya lihat CPMK di univ sendiri (via join course→program)
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        q = q.join(Course, Cpmk.course_id == Course.id).join(
+            Program, Course.program_id == Program.id
+        ).where(Program.university_id == current_user.university_id)
     if course_id:
         q = q.where(Cpmk.course_id == course_id)
     rows = (await db.execute(q)).scalars().all()

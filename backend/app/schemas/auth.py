@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 import uuid
+from datetime import datetime
 
 
 class LoginRequest(BaseModel):
@@ -33,3 +34,36 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str
+
+
+# ── User Management ────────────────────────────────────────────────────────────
+
+class UserOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+    university_id: Optional[int] = None
+    program_id: Optional[int] = None
+    is_active: bool
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    full_name: str
+    password: str
+    role: str               # admin | dosen
+    university_id: Optional[int] = None
+    program_id: Optional[int] = None
+
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    university_id: Optional[int] = None
+    program_id: Optional[int] = None
+    is_active: Optional[bool] = None

@@ -10,16 +10,20 @@ class Response(Base):
     __tablename__ = "responses"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    respondent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("respondents.id", ondelete="RESTRICT"), nullable=False)
+    # mahasiswa: respondent_id terisi, user_id null
+    # dosen: user_id terisi, respondent_id null
+    respondent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("respondents.id", ondelete="RESTRICT"), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
     instrument_version: Mapped[str] = mapped_column(String(20), default="1.0")
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     bahasa: Mapped[str] = mapped_column(String(5), nullable=False)  # id | zh
     is_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256 hash
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    respondent: Mapped["Respondent"] = relationship("Respondent", back_populates="responses")
+    respondent: Mapped["Respondent | None"] = relationship("Respondent", back_populates="responses")
+    user: Mapped["User | None"] = relationship("User")
     course: Mapped["Course"] = relationship("Course", back_populates="responses")
     items: Mapped[list["ResponseItem"]] = relationship("ResponseItem", back_populates="response", cascade="all, delete-orphan")
     open_answers: Mapped[list["ResponseOpenAnswer"]] = relationship("ResponseOpenAnswer", back_populates="response", cascade="all, delete-orphan")
