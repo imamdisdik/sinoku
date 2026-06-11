@@ -116,8 +116,10 @@ async function fetchData() {
 }
 
 onMounted(async () => {
-  const res = await getPrograms({ limit: 200 })
-  programList.value = res.data.data
+  try {
+    const res = await getPrograms({ limit: 500 })
+    programList.value = res.data.data
+  } catch { /* tetap lanjut meski dropdown gagal */ }
 })
 
 function openCreate() {

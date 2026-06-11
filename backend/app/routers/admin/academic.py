@@ -22,7 +22,7 @@ router = APIRouter(prefix="/admin", tags=["admin-academic"])
 @router.get("/universities", response_model=PagedUniversity)
 async def list_universities(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     search: Optional[str] = None,
     is_active: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
@@ -81,7 +81,7 @@ async def delete_university(uid: int, db: AsyncSession = Depends(get_db), _=Depe
 @router.get("/programs", response_model=PagedProgram)
 async def list_programs(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     university_id: Optional[int] = None,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
@@ -143,7 +143,7 @@ async def delete_program(pid: int, db: AsyncSession = Depends(get_db), _=Depends
 @router.get("/courses", response_model=PagedCourse)
 async def list_courses(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     program_id: Optional[int] = None,
     semester: Optional[int] = None,
     search: Optional[str] = None,

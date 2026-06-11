@@ -182,8 +182,10 @@ async function fetchData() {
 }
 
 onMounted(async () => {
-  const res = await getCourses({ limit: 200 })
-  courseList.value = res.data.data
+  try {
+    const res = await getCourses({ limit: 500 })
+    courseList.value = res.data.data
+  } catch { /* tetap lanjut meski dropdown gagal */ }
 })
 
 function openCreate() {

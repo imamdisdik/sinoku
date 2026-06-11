@@ -122,8 +122,10 @@ async function fetchData() {
 }
 
 async function fetchUnivs() {
-  const res = await getUniversities({ limit: 100 })
-  univList.value = res.data.data
+  try {
+    const res = await getUniversities({ limit: 500 })
+    univList.value = res.data.data
+  } catch { /* tetap lanjut */ }
 }
 
 function openCreate() { editing.value = null; form.value = defaultForm(); showModal.value = true }
