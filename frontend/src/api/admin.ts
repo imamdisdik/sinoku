@@ -82,3 +82,22 @@ export const deleteRps = (id: number) => api.delete(`/admin/rps/${id}`)
 export const getRpsChecklist = (rpsId: number) => api.get(`/admin/rps/${rpsId}/checklist`)
 export const updateRpsChecklist = (rpsId: number, itemId: number, data: object) =>
   api.patch(`/admin/rps/${rpsId}/checklist/${itemId}`, data)
+
+// Assessment Scheme (UC-14j)
+export const getSchemes = (params?: object) => api.get('/admin/assessment/schemes', { params })
+export const createScheme = (data: object) => api.post('/admin/assessment/schemes', data)
+export const updateScheme = (id: number, data: object) => api.put(`/admin/assessment/schemes/${id}`, data)
+export const deleteScheme = (id: number) => api.delete(`/admin/assessment/schemes/${id}`)
+
+// Rubrik (UC-14k)
+export const getRubrics = (schemeId: number) => api.get(`/admin/assessment/schemes/${schemeId}/rubrics`)
+export const createRubric = (schemeId: number, data: object) => api.post(`/admin/assessment/schemes/${schemeId}/rubrics`, data)
+export const updateRubric = (id: number, data: object) => api.put(`/admin/assessment/rubrics/${id}`, data)
+export const deleteRubric = (id: number) => api.delete(`/admin/assessment/rubrics/${id}`)
+
+// MBKM Integration (UC-14l)
+export const getMbkmList = (params?: object) => api.get('/admin/assessment/mbkm', { params })
+export const createMbkm = (data: object) => api.post('/admin/assessment/mbkm', data)
+export const updateMbkm = (id: number, data: object) => api.put(`/admin/assessment/mbkm/${id}`, data)
+export const deleteMbkm = (id: number) => api.delete(`/admin/assessment/mbkm/${id}`)
+export const toggleMbkm = (id: number) => api.patch(`/admin/assessment/mbkm/${id}/toggle`)
