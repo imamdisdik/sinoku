@@ -1,8 +1,12 @@
+import asyncio
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
+
+logger = logging.getLogger("sinoku.startup")
 from app.core.exceptions import validation_exception_handler, generic_exception_handler
 from app.core.middleware import log_request_middleware
 from app.routers.auth import router as auth_router
@@ -43,6 +47,23 @@ app.include_router(dashboard_router, prefix=API_PREFIX)
 app.include_router(users_router,     prefix=API_PREFIX)
 app.include_router(rps_router,       prefix=API_PREFIX)
 app.include_router(analytics_router, prefix=API_PREFIX)
+
+
+@app.on_event("startup")
+async def wait_for_db():
+    """Retry koneksi ke DB sampai berhasil — mencegah crash saat DB belum siap."""
+    from app.database import engine
+    from sqlalchemy import text
+    for attempt in range(1, 16):
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.info("Database connection OK")
+            return
+        except Exception as exc:
+            logger.warning(f"DB not ready (attempt {attempt}/15): {exc}")
+            await asyncio.sleep(2)
+    logger.error("Could not connect to database after 15 attempts — check DATABASE_URL in .env")
 
 
 @app.get("/health")
