@@ -40,6 +40,13 @@
       </div>
 
       <div class="nav-group">
+        <span class="nav-group-label">Penilaian</span>
+        <router-link to="/admin/assessment/schemes" class="nav-item">&#9878; Skema Penilaian</router-link>
+        <router-link to="/admin/assessment/rubrics" class="nav-item">&#128220; Rubrik</router-link>
+        <router-link to="/admin/assessment/mbkm" class="nav-item">&#127758; MBKM</router-link>
+      </div>
+
+      <div class="nav-group">
         <span class="nav-group-label">RPS & Laporan</span>
         <router-link to="/admin/rps" class="nav-item">&#128196; RPS</router-link>
         <router-link to="/admin/reports" class="nav-item">&#128221; Laporan Diagnostik</router-link>
