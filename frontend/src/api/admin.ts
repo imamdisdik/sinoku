@@ -58,6 +58,22 @@ export const toggleUserActive = (id: string) => api.patch(`/admin/users/${id}/to
 export const getAnalyticsComparison = (params?: object) => api.get('/admin/analytics/comparison', { params })
 export const getAnalyticsDistribution = (params?: object) => api.get('/admin/analytics/distribution', { params })
 
+// Instruments
+export const getInstrumentDimensions = () => api.get('/admin/instruments/dimensions')
+export const getInstrumentItems = (dimId: number, params?: object) => api.get(`/admin/instruments/dimensions/${dimId}/items`, { params })
+export const createInstrumentItem = (data: object) => api.post('/admin/instruments/items', data)
+export const updateInstrumentItem = (id: number, data: object) => api.put(`/admin/instruments/items/${id}`, data)
+export const toggleInstrumentItem = (id: number) => api.patch(`/admin/instruments/items/${id}/toggle`)
+export const deleteInstrumentItem = (id: number) => api.delete(`/admin/instruments/items/${id}`)
+export const getOpenQuestions = () => api.get('/admin/instruments/open-questions')
+export const createOpenQuestion = (data: object) => api.post('/admin/instruments/open-questions', data)
+export const updateOpenQuestion = (id: number, data: object) => api.put(`/admin/instruments/open-questions/${id}`, data)
+export const toggleOpenQuestion = (id: number) => api.patch(`/admin/instruments/open-questions/${id}/toggle`)
+
+// Anonymous Codes
+export const getAnonymousCodes = (params?: object) => api.get('/admin/anonymous-codes', { params })
+export const toggleAnonymousCode = (kode: string) => api.patch(`/admin/anonymous-codes/${kode}/toggle`)
+
 // RPS
 export const getRpsList = (params?: object) => api.get('/admin/rps', { params })
 export const createRps = (data: object) => api.post('/admin/rps', data)
