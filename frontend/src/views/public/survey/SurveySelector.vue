@@ -81,6 +81,7 @@ const canProceed = computed(() =>
 
 onMounted(async () => {
   survey.selectedRole = 'mahasiswa'
+  survey.isDosen = false
   const { data } = await publicApi.getUniversities()
   universities.value = data.data
 })

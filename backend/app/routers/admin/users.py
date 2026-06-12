@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import Optional
 from app.database import get_db
 from app.dependencies import require_admin, require_superadmin_or_admin
 from app.models.auth import User
-from app.schemas.auth import UserOut, UserCreate, UserUpdate
+from app.schemas.auth import UserOut, UserCreate, UserUpdate, PagedUsers
 from app.core.security import hash_password
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
@@ -20,8 +20,10 @@ def _scope(q, current_user: User):
     return q
 
 
-@router.get("", response_model=list[UserOut])
+@router.get("", response_model=PagedUsers)
 async def list_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=200),
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
@@ -36,10 +38,11 @@ async def list_users(
     if is_active is not None:
         q = q.where(User.is_active == is_active)
     if search:
-        q = q.where(User.full_name.ilike(f"%{search}%") | User.email.ilike(f"%{search}%"))
+        q = q.where(or_(User.full_name.ilike(f"%{search}%"), User.email.ilike(f"%{search}%")))
 
-    rows = (await db.execute(q.order_by(User.full_name))).scalars().all()
-    return rows
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar()
+    rows = (await db.execute(q.order_by(User.full_name).offset((page - 1) * limit).limit(limit))).scalars().all()
+    return {"data": rows, "total": total, "page": page, "limit": limit}
 
 
 @router.post("", response_model=UserOut, status_code=201)

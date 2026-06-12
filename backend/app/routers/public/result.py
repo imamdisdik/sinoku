@@ -62,18 +62,19 @@ async def get_result(kode: str, db: AsyncSession = Depends(get_db)):
                 jumlah_item=len(scores),
             ))
 
-    open_result = await db.execute(
-        select(ResponseOpenAnswer).where(ResponseOpenAnswer.response_id == response.id)
-    )
-    open_answers_db = open_result.scalars().all()
-    open_answers = []
-    for oa in open_answers_db:
-        q = await db.get(OpenQuestion, oa.open_question_id)
-        if q:
-            open_answers.append(OpenAnswerOut(
-                pertanyaan=q.pertanyaan_id if bahasa == "id" else q.pertanyaan_zh,
-                jawaban=oa.jawaban_teks,
-            ))
+    open_rows = (await db.execute(
+        select(ResponseOpenAnswer, OpenQuestion)
+        .join(OpenQuestion, ResponseOpenAnswer.open_question_id == OpenQuestion.id)
+        .where(ResponseOpenAnswer.response_id == response.id)
+        .order_by(OpenQuestion.urutan)
+    )).all()
+    open_answers = [
+        OpenAnswerOut(
+            pertanyaan=q.pertanyaan_id if bahasa == "id" else q.pertanyaan_zh,
+            jawaban=oa.jawaban_teks,
+        )
+        for oa, q in open_rows
+    ]
 
     return ResultResponse(
         kode=anon.kode,

@@ -67,3 +67,10 @@ class UserUpdate(BaseModel):
     university_id: Optional[int] = None
     program_id: Optional[int] = None
     is_active: Optional[bool] = None
+
+
+class PagedUsers(BaseModel):
+    data: list[UserOut]
+    total: int
+    page: int
+    limit: int

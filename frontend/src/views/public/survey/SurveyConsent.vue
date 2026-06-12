@@ -28,7 +28,7 @@
       </div>
 
       <div style="display:flex; gap:12px;">
-        <button class="btn btn-outline" @click="router.back()">{{ t('survey.prev') }}</button>
+        <button class="btn btn-outline" @click="router.push({ name: 'survey' })">{{ t('survey.prev') }}</button>
         <button class="btn btn-primary" style="flex:1;" @click="proceed">
           {{ t('survey.consent_agree') }} →
         </button>

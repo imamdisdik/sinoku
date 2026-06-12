@@ -33,7 +33,6 @@ const router = createRouter({
         { path: 'rps', name: 'admin-rps', component: () => import('@/views/admin/rps/RpsList.vue') },
         { path: 'rps/:id/checklist', name: 'admin-rps-checklist', component: () => import('@/views/admin/rps/RpsChecklist.vue') },
         { path: 'instruments', name: 'admin-instruments', component: () => import('@/views/admin/instrument/InstrumentList.vue') },
-        { path: 'instruments/items', name: 'admin-items', component: () => import('@/views/admin/instrument/ItemManager.vue') },
         { path: 'anonymous-codes', name: 'admin-anon', component: () => import('@/views/admin/anonymous/AnonymousCodeList.vue') },
         { path: 'analytics', name: 'admin-analytics', component: () => import('@/views/admin/analytics/AnalyticsDashboard.vue') },
         { path: 'reports', name: 'admin-reports', component: () => import('@/views/admin/report/DiagnosticHistory.vue') },
@@ -42,7 +41,7 @@ const router = createRouter({
     },
 
     // DOSEN SURVEY (guard: harus login sebagai dosen)
-    { path: '/survey/dosen', name: 'survey-dosen', meta: { requiresAuth: true }, component: () => import('@/views/public/survey/SurveyDosenSelector.vue') },
+    { path: '/survey/dosen', name: 'survey-dosen', meta: { requiresAuth: true, requiresRole: 'dosen' }, component: () => import('@/views/public/survey/SurveyDosenSelector.vue') },
 
     // 404
     { path: '/:pathMatch(.*)*', redirect: '/' },

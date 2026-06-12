@@ -359,8 +359,13 @@ async function submit() {
     }
 
     const { data } = await publicApi.startSurvey(body)
-    survey.responseId = data.response_id
-    survey.respondentId = data.respondent_id
+    survey.initFromServer({
+      response_id: data.response_id,
+      respondent_id: data.respondent_id,
+      role: 'mahasiswa',
+      bahasa: survey.selectedBahasa,
+      isDosen: false,
+    })
     router.push({ name: 'survey-B' })
   } catch (e: any) {
     errorMsg.value = e.response?.data?.detail || 'Gagal memulai survei. Coba lagi.'

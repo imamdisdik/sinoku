@@ -6,12 +6,12 @@
     </div>
 
     <div class="toolbar">
-      <select v-model="filterRole" @change="fetchData" class="search-input">
+      <select v-model="filterRole" @change="() => { page = 1; fetchData() }" class="search-input">
         <option value="">Semua Role</option>
         <option value="admin">Admin Universitas</option>
         <option value="dosen">Dosen</option>
       </select>
-      <select v-model="filterActive" @change="fetchData" class="search-input">
+      <select v-model="filterActive" @change="() => { page = 1; fetchData() }" class="search-input">
         <option value="">Semua Status</option>
         <option value="true">Aktif</option>
         <option value="false">Nonaktif</option>
@@ -55,6 +55,12 @@
           </tr>
         </tbody>
       </table>
+      <!-- Paginasi -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="page === 1" @click="changePage(page - 1)">‹ Prev</button>
+        <span class="page-info">Hal {{ page }} / {{ totalPages }} ({{ total }} akun)</span>
+        <button class="page-btn" :disabled="page === totalPages" @click="changePage(page + 1)">Next ›</button>
+      </div>
     </div>
 
     <!-- Modal Create/Edit -->
@@ -108,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -128,6 +134,9 @@ const editing = ref<any>(null)
 const filterRole = ref('')
 const filterActive = ref('')
 const search = ref('')
+const page = ref(1)
+const total = ref(0)
+const limit = 20
 let searchTimer: ReturnType<typeof setTimeout>
 
 const defaultForm = () => ({
@@ -146,22 +155,28 @@ const filteredPrograms = computed(() =>
     : programList.value
 )
 
+const totalPages = computed(() => Math.ceil(total.value / limit))
+
 async function fetchData() {
   loading.value = true
   try {
-    const params: any = {}
+    const params: any = { page: page.value, limit }
     if (filterRole.value) params.role = filterRole.value
     if (filterActive.value !== '') params.is_active = filterActive.value
     if (search.value) params.search = search.value
     const res = await getUsers(params)
-    rows.value = res.data
+    rows.value = res.data.data
+    total.value = res.data.total
   } finally { loading.value = false }
 }
 
 function onSearch() {
   clearTimeout(searchTimer)
+  page.value = 1
   searchTimer = setTimeout(fetchData, 400)
 }
+
+function changePage(p: number) { page.value = p; fetchData() }
 
 function univName(id: number | null) {
   return univList.value.find((u: any) => u.id === id)?.nama_singkat ?? ''
@@ -256,4 +271,8 @@ onMounted(async () => {
 .form-group label { font-size:12px; font-weight:600; color:#4a5568 }
 .form-input { padding:8px 10px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px; width:100% }
 .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px }
+.pagination { display:flex; align-items:center; justify-content:center; gap:12px; padding:14px }
+.page-btn { padding:6px 14px; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer; background:#fff; font-size:13px }
+.page-btn:disabled { opacity:.4; cursor:not-allowed }
+.page-info { font-size:13px; color:#718096 }
 </style>

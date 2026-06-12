@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getActivePinia } from 'pinia'
 
 const client = axios.create({
   baseURL: '/api/v1',
@@ -26,8 +27,11 @@ client.interceptors.response.use(
           const { data } = await axios.post('/api/v1/auth/refresh', { refresh_token: refreshToken })
           const newToken = data.access_token
           localStorage.setItem('access_token', newToken)
-          // Sync ke store tanpa circular import — update langsung di localStorage,
-          // store akan membaca ulang dari sini lewat accessToken.value
+          // Sync ke Pinia store tanpa circular import (hindari useAuthStore langsung)
+          const pinia = getActivePinia()
+          if (pinia?.state.value['auth']) {
+            pinia.state.value['auth'].accessToken = newToken
+          }
           original.headers.Authorization = `Bearer ${newToken}`
           return client(original)
         } catch {

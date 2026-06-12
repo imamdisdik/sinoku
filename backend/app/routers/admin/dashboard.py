@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from typing import Optional
 from datetime import date
 from app.database import get_db
@@ -133,46 +133,43 @@ async def problem_heatmap(
     if not response_ids:
         return {"items": []}
 
-    items = (await db.execute(
-        select(InstrumentItem, CippSubDimension, CippDimension)
+    # Satu query: avg per item split dosen/mahasiswa menggunakan conditional aggregation
+    agg_rows = (await db.execute(
+        select(
+            InstrumentItem.id,
+            InstrumentItem.kode,
+            InstrumentItem.text_id_dosen,
+            CippSubDimension.kode.label("sub_kode"),
+            CippDimension.kode.label("dim_kode"),
+            func.avg(case((Response.role == "dosen", ResponseItem.skor), else_=None)).label("avg_dosen"),
+            func.avg(case((Response.role == "mahasiswa", ResponseItem.skor), else_=None)).label("avg_mhs"),
+        )
+        .join(ResponseItem, ResponseItem.item_id == InstrumentItem.id)
+        .join(Response, ResponseItem.response_id == Response.id)
         .join(CippSubDimension, InstrumentItem.sub_dimension_id == CippSubDimension.id)
         .join(CippDimension, CippSubDimension.dimension_id == CippDimension.id)
-        .where(InstrumentItem.is_active == True)
+        .where(
+            InstrumentItem.is_active == True,
+            ResponseItem.response_id.in_(response_ids),
+        )
+        .group_by(
+            InstrumentItem.id, InstrumentItem.kode, InstrumentItem.text_id_dosen,
+            CippSubDimension.kode, CippDimension.kode,
+        )
     )).all()
 
     result = []
-    for item, subdim, dim in items:
-        scores_dosen = (await db.execute(
-            select(ResponseItem.skor)
-            .join(Response, ResponseItem.response_id == Response.id)
-            .where(
-                ResponseItem.item_id == item.id,
-                ResponseItem.response_id.in_(response_ids),
-                Response.role == "dosen",
-            )
-        )).scalars().all()
-
-        scores_mhs = (await db.execute(
-            select(ResponseItem.skor)
-            .join(Response, ResponseItem.response_id == Response.id)
-            .where(
-                ResponseItem.item_id == item.id,
-                ResponseItem.response_id.in_(response_ids),
-                Response.role == "mahasiswa",
-            )
-        )).scalars().all()
-
-        avg_d = round(sum(scores_dosen) / len(scores_dosen), 2) if scores_dosen else None
-        avg_m = round(sum(scores_mhs) / len(scores_mhs), 2) if scores_mhs else None
-
+    for row in agg_rows:
+        avg_d = round(float(row.avg_dosen), 2) if row.avg_dosen is not None else None
+        avg_m = round(float(row.avg_mhs), 2) if row.avg_mhs is not None else None
         if (avg_d is not None and avg_d < threshold) or (avg_m is not None and avg_m < threshold):
             gap = round(abs((avg_d or 0) - (avg_m or 0)), 2)
             result.append({
-                "item_id": item.id,
-                "kode": item.kode,
-                "teks_id": item.text_id_dosen,
-                "dimensi": dim.kode,
-                "sub_dimensi": subdim.kode,
+                "item_id": row.id,
+                "kode": row.kode,
+                "teks_id": row.text_id_dosen,
+                "dimensi": row.dim_kode,
+                "sub_dimensi": row.sub_kode,
                 "skor_dosen": avg_d,
                 "skor_mahasiswa": avg_m,
                 "gap": gap,
