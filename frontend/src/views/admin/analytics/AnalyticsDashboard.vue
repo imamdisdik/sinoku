@@ -117,9 +117,14 @@
       <!-- TAB: Dosen vs Mahasiswa -->
       <div v-if="activeTab === 'comparison'" class="tab-content">
         <div class="section-title">Perbandingan Skor Dosen vs Mahasiswa per Dimensi</div>
-        <div v-if="!kpi.cipp_by_dimension?.length" class="empty-state">Belum ada data</div>
+        <div v-if="loadingComparison" class="empty-state">Memuat data perbandingan...</div>
+        <div v-else-if="!comparisonData.dimensions?.length" class="empty-state">Belum ada data perbandingan</div>
         <div v-else class="comparison-chart">
-          <div v-for="d in kpi.cipp_by_dimension" :key="d.kode" class="comp-row">
+          <div class="comp-meta">
+            <span class="comp-meta-item dosen-role">{{ comparisonData.total_dosen }} respons dosen</span>
+            <span class="comp-meta-item mhs-role">{{ comparisonData.total_mahasiswa }} respons mahasiswa</span>
+          </div>
+          <div v-for="d in comparisonData.dimensions" :key="d.kode" class="comp-row">
             <div class="comp-label">
               <span class="comp-kode" :style="{ color: dimensiColor(d.kode) }">{{ d.kode }}</span>
               <span class="comp-nama">{{ d.nama }}</span>
@@ -128,16 +133,18 @@
               <div class="bar-group">
                 <span class="bar-role dosen-role">Dosen</span>
                 <div class="bar-track">
-                  <div class="bar-fill dosen" :style="{ width: pct(d.rata_rata) }" />
+                  <div class="bar-fill dosen" :style="{ width: pct(d.skor_dosen) }" />
                 </div>
-                <span class="bar-val">{{ d.rata_rata?.toFixed(2) }}</span>
+                <span class="bar-val">{{ d.skor_dosen != null ? d.skor_dosen.toFixed(2) : '—' }}</span>
+                <span class="bar-n">(n={{ d.n_dosen }})</span>
               </div>
               <div class="bar-group">
                 <span class="bar-role mhs-role">Mahasiswa</span>
                 <div class="bar-track">
-                  <div class="bar-fill mahasiswa" :style="{ width: pct(d.rata_rata) }" />
+                  <div class="bar-fill mahasiswa" :style="{ width: pct(d.skor_mahasiswa) }" />
                 </div>
-                <span class="bar-val">{{ d.rata_rata?.toFixed(2) }}</span>
+                <span class="bar-val">{{ d.skor_mahasiswa != null ? d.skor_mahasiswa.toFixed(2) : '—' }}</span>
+                <span class="bar-n">(n={{ d.n_mahasiswa }})</span>
               </div>
             </div>
           </div>
@@ -146,28 +153,44 @@
             <span class="leg-dot" style="background:#38a169"></span> Mahasiswa
           </div>
         </div>
-        <p class="info-note">ℹ️ Tampilan menggunakan rata-rata gabungan. Pemisahan per-role tersedia saat data heatmap mencukupi.</p>
       </div>
 
       <!-- TAB: Distribusi Skor -->
       <div v-if="activeTab === 'distribution'" class="tab-content">
         <div class="section-title">Distribusi Skor Likert (1–5) per Dimensi</div>
-        <div class="dist-grid">
-          <div v-for="d in kpi.cipp_by_dimension" :key="d.kode" class="dist-card">
+        <div v-if="loadingDistribution" class="empty-state">Memuat data distribusi...</div>
+        <div v-else-if="!distributionData.dimensions?.length" class="empty-state">Belum ada data distribusi</div>
+        <div v-else class="dist-outer">
+          <div v-for="d in distributionData.dimensions" :key="d.kode" class="dist-card-wide">
             <div class="dist-title" :style="{ color: dimensiColor(d.kode) }">{{ d.kode }} — {{ d.nama }}</div>
-            <div class="dist-bars">
-              <div v-for="val in [1,2,3,4,5]" :key="val" class="dist-item">
-                <span class="dist-label">{{ val }}</span>
-                <div class="dist-track">
-                  <div class="dist-fill" :style="{ width: distPct(d, val), background: distColor(val) }" />
+            <div class="dist-split">
+              <div class="dist-half">
+                <div class="dist-role-title dosen-role">Dosen (n={{ d.dosen.n }}, μ={{ d.dosen.mean }})</div>
+                <div class="dist-bars">
+                  <div v-for="val in [1,2,3,4,5]" :key="val" class="dist-item">
+                    <span class="dist-label">{{ val }}</span>
+                    <div class="dist-track">
+                      <div class="dist-fill" :style="{ width: realDistPct(d.dosen, val), background: distColor(val) }" />
+                    </div>
+                    <span class="dist-pct">{{ d.dosen.distribution[val] ?? 0 }}</span>
+                  </div>
                 </div>
-                <span class="dist-pct">{{ distPct(d, val) }}</span>
+              </div>
+              <div class="dist-half">
+                <div class="dist-role-title mhs-role">Mahasiswa (n={{ d.mahasiswa.n }}, μ={{ d.mahasiswa.mean }})</div>
+                <div class="dist-bars">
+                  <div v-for="val in [1,2,3,4,5]" :key="val" class="dist-item">
+                    <span class="dist-label">{{ val }}</span>
+                    <div class="dist-track">
+                      <div class="dist-fill" :style="{ width: realDistPct(d.mahasiswa, val), background: distColor(val) }" />
+                    </div>
+                    <span class="dist-pct">{{ d.mahasiswa.distribution[val] ?? 0 }}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="dist-interp">{{ interpretasi(d.rata_rata) }} — μ={{ d.rata_rata?.toFixed(2) }}</div>
           </div>
         </div>
-        <p class="info-note">ℹ️ Distribusi diestimasi berdasarkan rata-rata dan standar deviasi dimensi.</p>
       </div>
 
       <!-- TAB: Tren -->
@@ -192,15 +215,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getDashboardKpi, getProblemHeatmap, getCourses } from '@/api/admin'
+import { getDashboardKpi, getProblemHeatmap, getCourses, getAnalyticsComparison, getAnalyticsDistribution } from '@/api/admin'
 
 const loading = ref(true)
+const loadingComparison = ref(false)
+const loadingDistribution = ref(false)
 const activeTab = ref('overview')
 const threshold = ref(3.0)
 const filters = ref({ course_id: null as number | null })
 const kpi = ref<any>({ cipp_by_dimension: [], response_trend: [] })
 const heatmapItems = ref<any[]>([])
 const courses = ref<any[]>([])
+const comparisonData = ref<any>({ total_dosen: 0, total_mahasiswa: 0, dimensions: [] })
+const distributionData = ref<any>({ dimensions: [] })
 
 const COLORS: Record<string, string> = { B: '#3182ce', C: '#38a169', D: '#d69e2e', E: '#e53e3e' }
 
@@ -217,13 +244,11 @@ function scoreClass(val: number | null) {
   if (val === null || val === undefined) return 'score-na'
   return val < 2.5 ? 'score-bad' : val < 3.5 ? 'score-warn' : 'score-ok'
 }
-function distPct(d: any, val: number) {
-  const avg = d.rata_rata ?? 0
-  const dist: Record<number, number> = { 1: 5, 2: 15, 3: 30, 4: 35, 5: 15 }
-  if (avg >= 4.0) Object.assign(dist, { 1: 2, 2: 8, 3: 20, 4: 40, 5: 30 })
-  else if (avg >= 3.5) Object.assign(dist, { 1: 3, 2: 12, 3: 25, 4: 40, 5: 20 })
-  else if (avg <= 2.5) Object.assign(dist, { 1: 25, 2: 35, 3: 25, 4: 10, 5: 5 })
-  return `${dist[val]}%`
+function realDistPct(roleData: any, val: number) {
+  const total = roleData?.n ?? 0
+  if (!total) return '0%'
+  const count = roleData?.distribution?.[val] ?? 0
+  return `${Math.round((count / total) * 100)}%`
 }
 function distColor(val: number) {
   return ['#e53e3e', '#ed8936', '#ecc94b', '#48bb78', '#38a169'][val - 1]
@@ -276,9 +301,29 @@ async function fetchHeatmap() {
   const res = await getProblemHeatmap(params)
   heatmapItems.value = res.data.items
 }
+async function fetchComparison() {
+  loadingComparison.value = true
+  try {
+    const params: any = {}
+    if (filters.value.course_id) params.course_id = filters.value.course_id
+    const res = await getAnalyticsComparison(params)
+    comparisonData.value = res.data
+  } catch { comparisonData.value = { total_dosen: 0, total_mahasiswa: 0, dimensions: [] } }
+  finally { loadingComparison.value = false }
+}
+async function fetchDistribution() {
+  loadingDistribution.value = true
+  try {
+    const params: any = {}
+    if (filters.value.course_id) params.course_id = filters.value.course_id
+    const res = await getAnalyticsDistribution(params)
+    distributionData.value = res.data
+  } catch { distributionData.value = { dimensions: [] } }
+  finally { loadingDistribution.value = false }
+}
 async function fetchAll() {
   loading.value = true
-  try { await Promise.all([fetchKpi(), fetchHeatmap()]) }
+  try { await Promise.all([fetchKpi(), fetchHeatmap(), fetchComparison(), fetchDistribution()]) }
   finally { loading.value = false }
 }
 
@@ -351,7 +396,14 @@ onMounted(async () => {
 .legend-row{display:flex;align-items:center;gap:4px;font-size:13px;color:#718096;margin-top:8px}
 .leg-dot{display:inline-block;width:10px;height:10px;border-radius:50%}
 .info-note{font-size:12px;color:#a0aec0;margin-top:16px;font-style:italic}
-.dist-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.comp-meta{display:flex;gap:16px;margin-bottom:16px;padding:10px 14px;background:#f7fafc;border-radius:8px}
+.comp-meta-item{font-size:13px;font-weight:600}
+.bar-n{font-size:11px;color:#a0aec0;margin-left:2px}
+.dist-outer{display:flex;flex-direction:column;gap:16px}
+.dist-card-wide{border:1px solid #e2e8f0;border-radius:10px;padding:16px}
+.dist-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+.dist-half{display:flex;flex-direction:column;gap:6px}
+.dist-role-title{font-size:12px;font-weight:700;margin-bottom:6px}
 .dist-card{border:1px solid #e2e8f0;border-radius:10px;padding:16px}
 .dist-title{font-size:13px;font-weight:700;margin-bottom:12px}
 .dist-bars{display:flex;flex-direction:column;gap:6px}
