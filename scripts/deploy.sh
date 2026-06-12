@@ -20,7 +20,7 @@ if [ ! -f backend/.env ]; then
 fi
 
 # Verifikasi DATABASE_URL pakai host 'db' bukan 'localhost'
-if grep -q "localhost" backend/.env 2>/dev/null; then
+if grep -q "^DATABASE_URL=.*localhost" backend/.env 2>/dev/null; then
   echo "❌ ERROR: DATABASE_URL masih pakai 'localhost' — harus 'db'"
   echo "   Edit: nano backend/.env"
   exit 1
