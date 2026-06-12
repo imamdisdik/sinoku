@@ -8,6 +8,7 @@ const router = createRouter({
     { path: '/', name: 'landing', component: () => import('@/views/public/LandingPage.vue') },
     { path: '/survey', name: 'survey', component: () => import('@/views/public/survey/SurveySelector.vue') },
     { path: '/survey/consent', name: 'survey-consent', component: () => import('@/views/public/survey/SurveyConsent.vue') },
+    { path: '/survey/profile', name: 'survey-profile', component: () => import('@/views/public/survey/SurveyProfile.vue') },
     { path: '/survey/step/B', name: 'survey-B', component: () => import('@/views/public/survey/SurveyStepContext.vue') },
     { path: '/survey/step/C', name: 'survey-C', component: () => import('@/views/public/survey/SurveyStepInput.vue') },
     { path: '/survey/step/D', name: 'survey-D', component: () => import('@/views/public/survey/SurveyStepProcess.vue') },
