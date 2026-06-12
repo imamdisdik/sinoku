@@ -85,7 +85,7 @@ onMounted(async () => {
 })
 
 function goBack() {
-  router.push({ name: 'survey-consent' })
+  router.push({ name: survey.isDosen ? 'survey-dosen' : 'survey-consent' })
 }
 
 async function saveAndNext() {

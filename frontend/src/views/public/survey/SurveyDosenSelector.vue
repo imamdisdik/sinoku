@@ -80,7 +80,7 @@ async function start() {
     const res = await publicApi.startSurveyDosen(selectedCourse.value, bahasa.value)
     const { response_id, role, bahasa: lang } = res.data
     survey.initFromServer({ response_id, respondent_id: null, role, bahasa: lang, isDosen: true })
-    router.push({ name: 'SurveyStep', params: { responseId: response_id, step: 'context' } })
+    router.push({ name: 'survey-B' })
   } catch (e: any) {
     errorMsg.value = e.response?.data?.detail || 'Gagal memulai evaluasi'
   } finally {
