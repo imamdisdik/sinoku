@@ -26,13 +26,13 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 const props = defineProps<{ currentStep: string }>()
 
-const steps = [
-  { key: 'B', label: computed(() => t('survey.step_context')).value },
-  { key: 'C', label: computed(() => t('survey.step_input')).value },
-  { key: 'D', label: computed(() => t('survey.step_process')).value },
-  { key: 'E', label: computed(() => t('survey.step_product')).value },
-]
-const currentIndex = computed(() => steps.findIndex(s => s.key === props.currentStep))
+const steps = computed(() => [
+  { key: 'B', label: t('survey.step_context') },
+  { key: 'C', label: t('survey.step_input') },
+  { key: 'D', label: t('survey.step_process') },
+  { key: 'E', label: t('survey.step_product') },
+])
+const currentIndex = computed(() => steps.value.findIndex(s => s.key === props.currentStep))
 </script>
 
 <style scoped>

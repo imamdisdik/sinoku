@@ -72,6 +72,17 @@ class ChecklistUpdate(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+async def _check_rps_university(rps: RpsVersion, current_user: User, db: AsyncSession):
+    """Pastikan RPS yang diakses milik universitas user (admin/dosen)."""
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        course = await db.get(Course, rps.course_id)
+        if not course:
+            raise HTTPException(403, "Akses ditolak")
+        program = await db.get(Program, course.program_id)
+        if not program or program.university_id != current_user.university_id:
+            raise HTTPException(403, "Akses ditolak")
+
+
 def _scope_course(q, current_user: User):
     if current_user.role in ("admin", "dosen") and current_user.university_id:
         q = q.join(Course, RpsVersion.course_id == Course.id).join(
@@ -131,6 +142,7 @@ async def get_rps(
     rps = await db.get(RpsVersion, rps_id)
     if not rps:
         raise HTTPException(404, "RPS tidak ditemukan")
+    await _check_rps_university(rps, current_user, db)
     return rps
 
 
@@ -144,6 +156,7 @@ async def update_rps(
     rps = await db.get(RpsVersion, rps_id)
     if not rps:
         raise HTTPException(404, "RPS tidak ditemukan")
+    await _check_rps_university(rps, current_user, db)
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(rps, k, v)
     await db.commit()
@@ -160,6 +173,7 @@ async def delete_rps(
     rps = await db.get(RpsVersion, rps_id)
     if not rps:
         raise HTTPException(404, "RPS tidak ditemukan")
+    await _check_rps_university(rps, current_user, db)
     await db.delete(rps)
     await db.commit()
 

@@ -226,11 +226,14 @@ async def map_course_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends
     c = await db.get(Course, cid)
     if not c:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    existing_ids = set((await db.execute(
+        select(CourseCplMapping.cpl_id).where(
+            CourseCplMapping.course_id == cid,
+            CourseCplMapping.cpl_id.in_(body.cpl_ids),
+        )
+    )).scalars().all())
     for cpl_id in body.cpl_ids:
-        exists = (await db.execute(
-            select(CourseCplMapping).where(CourseCplMapping.course_id == cid, CourseCplMapping.cpl_id == cpl_id)
-        )).scalar_one_or_none()
-        if not exists:
+        if cpl_id not in existing_ids:
             db.add(CourseCplMapping(course_id=cid, cpl_id=cpl_id))
     await db.commit()
     return {"mapped": len(body.cpl_ids)}
@@ -371,11 +374,14 @@ async def get_cpmk_cpls(cid: int, db: AsyncSession = Depends(get_db), _=Depends(
 
 @router.post("/cpmks/{cid}/cpls", status_code=201)
 async def map_cpmk_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+    existing_ids = set((await db.execute(
+        select(CpmkCplMapping.cpl_id).where(
+            CpmkCplMapping.cpmk_id == cid,
+            CpmkCplMapping.cpl_id.in_(body.cpl_ids),
+        )
+    )).scalars().all())
     for cpl_id in body.cpl_ids:
-        exists = (await db.execute(
-            select(CpmkCplMapping).where(CpmkCplMapping.cpmk_id == cid, CpmkCplMapping.cpl_id == cpl_id)
-        )).scalar_one_or_none()
-        if not exists:
+        if cpl_id not in existing_ids:
             db.add(CpmkCplMapping(cpmk_id=cid, cpl_id=cpl_id))
     await db.commit()
     return {"mapped": len(body.cpl_ids)}

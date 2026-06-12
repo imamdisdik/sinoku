@@ -312,7 +312,8 @@ const canSubmit = computed(() =>
   !!form.value.chinese_friends &&
   form.value.has_taken_culture_course !== null &&
   !!form.value.course_status_taken &&
-  !!form.value.cultural_interaction_freq
+  !!form.value.cultural_interaction_freq &&
+  form.value.motivations.length > 0
 )
 
 async function submit() {
