@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Optional
 from pydantic import BaseModel
 from app.database import get_db
@@ -118,22 +118,33 @@ class OpenQUpdate(BaseModel):
 
 @router.get("/dimensions")
 async def list_dimensions(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    # Satu query: semua sub-dimensi beserta count item-nya
+    subdim_counts = dict((await db.execute(
+        select(CippSubDimension.id, func.count(InstrumentItem.id).label("cnt"))
+        .outerjoin(InstrumentItem, InstrumentItem.sub_dimension_id == CippSubDimension.id)
+        .group_by(CippSubDimension.id)
+    )).all())
+
+    subdims_all = (await db.execute(
+        select(CippSubDimension).order_by(CippSubDimension.dimension_id, CippSubDimension.urutan)
+    )).scalars().all()
+
     dims = (await db.execute(
         select(CippDimension).order_by(CippDimension.urutan)
     )).scalars().all()
-    result = []
-    for dim in dims:
-        subdims = (await db.execute(
-            select(CippSubDimension).where(CippSubDimension.dimension_id == dim.id).order_by(CippSubDimension.urutan)
-        )).scalars().all()
-        subdims_out = []
-        for sd in subdims:
-            from sqlalchemy import func
-            cnt = (await db.execute(
-                select(func.count()).where(InstrumentItem.sub_dimension_id == sd.id)
-            )).scalar_one()
-            subdims_out.append({**SubDimensiOut.model_validate(sd).model_dump(), "item_count": cnt})
-        result.append({**DimensiOut.model_validate(dim).model_dump(), "sub_dimensions": subdims_out})
+
+    # Kelompokkan sub-dimensi per dimensi di Python
+    from collections import defaultdict
+    sd_by_dim: dict[int, list] = defaultdict(list)
+    for sd in subdims_all:
+        sd_by_dim[sd.dimension_id].append(
+            {**SubDimensiOut.model_validate(sd).model_dump(), "item_count": subdim_counts.get(sd.id, 0)}
+        )
+
+    result = [
+        {**DimensiOut.model_validate(dim).model_dump(), "sub_dimensions": sd_by_dim[dim.id]}
+        for dim in dims
+    ]
     return {"data": result}
 
 

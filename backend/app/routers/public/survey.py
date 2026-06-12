@@ -89,7 +89,7 @@ async def start_survey(body: SurveyStartRequest, request: Request, db: AsyncSess
         raise HTTPException(status_code=404, detail="Mata kuliah tidak ditemukan")
 
     respondent = Respondent(
-        role=body.role, full_name=body.full_name, university_id=body.university_id,
+        role="mahasiswa", full_name=body.full_name, university_id=body.university_id,
         program_id=body.program_id, faculty=body.faculty,
         academic_position=body.academic_position, teaching_duration=body.teaching_duration,
         education_level=body.education_level, china_experience_dosen=body.china_experience_dosen,
@@ -122,13 +122,13 @@ async def start_survey(body: SurveyStartRequest, request: Request, db: AsyncSess
 
     response = Response(
         respondent_id=respondent.id, course_id=body.course_id,
-        role=body.role, bahasa=body.bahasa, ip_hash=ip_hash,
+        role="mahasiswa", bahasa=body.bahasa, ip_hash=ip_hash,
     )
     db.add(response)
     await db.flush()
 
     return SurveyStartResponse(response_id=response.id, respondent_id=respondent.id,
-                                role=body.role, bahasa=body.bahasa)
+                                role="mahasiswa", bahasa=body.bahasa)
 
 
 @router.get("/survey/{response_id}/items", response_model=SurveyItemsResponse)

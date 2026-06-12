@@ -6,12 +6,12 @@
     </div>
 
     <div class="toolbar">
-      <select v-model="filterRole" @change="() => { page = 1; fetchData() }" class="search-input">
+      <select v-model="filterRole" @change="() => { page.value = 1; fetchData() }" class="search-input">
         <option value="">Semua Role</option>
         <option value="admin">Admin Universitas</option>
         <option value="dosen">Dosen</option>
       </select>
-      <select v-model="filterActive" @change="() => { page = 1; fetchData() }" class="search-input">
+      <select v-model="filterActive" @change="() => { page.value = 1; fetchData() }" class="search-input">
         <option value="">Semua Status</option>
         <option value="true">Aktif</option>
         <option value="false">Nonaktif</option>
