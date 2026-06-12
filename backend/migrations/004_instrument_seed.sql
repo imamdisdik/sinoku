@@ -59,8 +59,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items B.1 — Relevansi Kurikulum ─────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'B.1')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('B1', 1,
    'Materi MK Budaya Tiongkok yang saya ajarkan relevan dengan kebutuhan mahasiswa di era globalisasi',
    'Materi MK Budaya Tiongkok yang saya pelajari relevan dengan kebutuhan saya sebagai mahasiswa',
@@ -86,8 +86,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items B.2 — Kebutuhan Stakeholder ───────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'B.2')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('B5', 1,
    'MK Budaya Tiongkok mendapat dukungan yang kuat dari pimpinan program studi',
    'MK Budaya Tiongkok diakui penting oleh program studi saya',
@@ -103,8 +103,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items B.3 — Dukungan Institusi ───────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'B.3')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('B7', 1,
    'Institusi menyediakan anggaran dan sumber daya yang memadai untuk pengembangan MK ini',
    'Institusi mendukung kegiatan akademik MK Budaya Tiongkok dengan baik',
@@ -120,8 +120,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items C.1 — Kualifikasi Dosen ────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'C.1')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('C1', 1,
    'Latar belakang pendidikan dan keahlian saya sesuai dengan mata kuliah yang saya ampu',
    'Dosen MK Budaya Tiongkok memiliki latar belakang pendidikan dan keahlian yang sesuai',
@@ -142,8 +142,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items C.2 — Materi Ajar ───────────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'C.2')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('C4', 1,
    'Bahan ajar yang saya gunakan (buku, modul, artikel) up-to-date dan relevan',
    'Bahan ajar yang digunakan dalam MK ini (buku, modul, artikel) up-to-date dan relevan',
@@ -164,8 +164,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items C.3 — Fasilitas ─────────────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'C.3')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('C7', 1,
    'Ruang kelas yang digunakan kondusif dan mendukung proses pembelajaran budaya Tiongkok',
    'Ruang kelas yang digunakan kondusif untuk pembelajaran MK Budaya Tiongkok',
@@ -181,8 +181,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items D.1 — Metode Pengajaran ─────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'D.1')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('D1', 1,
    'Saya menggunakan metode pembelajaran yang bervariasi (ceramah, diskusi, role-play, studi kasus)',
    'Dosen menggunakan metode pembelajaran yang bervariasi sehingga kuliah tidak monoton',
@@ -208,8 +208,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items D.2 — Interaksi ─────────────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'D.2')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('D5', 1,
    'Saya menciptakan suasana kelas yang aktif dan mendorong mahasiswa untuk bertanya dan berpendapat',
    'Dosen menciptakan suasana kelas yang aktif dan mendorong saya untuk bertanya dan berpendapat',
@@ -230,8 +230,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items D.3 — Penilaian ─────────────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'D.3')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('D8', 1,
    'Saya memberikan tugas/kuis/ujian yang relevan dan mengukur ketercapaian CPL secara tepat',
    'Tugas, kuis, dan ujian dalam MK ini relevan dan mengukur pemahaman saya terhadap materi',
@@ -252,8 +252,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items E.1 — Pencapaian Kompetensi ────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'E.1')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('E1', 1,
    'Mahasiswa yang mengikuti MK saya mampu mencapai CPL yang telah ditetapkan',
    'Setelah mengikuti MK ini, saya merasa mampu mencapai Capaian Pembelajaran (CPL) yang ditetapkan',
@@ -274,8 +274,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items E.2 — Pemahaman Budaya ──────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'E.2')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('E4', 1,
    'MK yang saya ampu berhasil meningkatkan pemahaman mahasiswa tentang budaya Tiongkok secara komprehensif',
    'MK ini meningkatkan pemahaman saya tentang budaya Tiongkok secara menyeluruh',
@@ -296,8 +296,8 @@ ON CONFLICT (kode) DO NOTHING;
 
 -- ── Items E.3 — Kepuasan & Dampak ────────────────────────────────────────────
 WITH sd AS (SELECT id FROM cipp_sub_dimensions WHERE kode = 'E.3')
-INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, is_active)
-SELECT sd.id, kode, urut, td, tm, zd, zm, true FROM sd, (VALUES
+INSERT INTO instrument_items (sub_dimension_id, kode, nomor_urut, text_id_dosen, text_id_mahasiswa, text_zh_dosen, text_zh_mahasiswa, answer_type, scale_min, scale_max, is_required, is_active)
+SELECT sd.id, kode, urut, td, tm, zd, zm, 'likert', 1, 5, true, true FROM sd, (VALUES
   ('E7', 1,
    'Saya merasa puas dengan pelaksanaan MK Budaya Tiongkok yang saya ampu secara keseluruhan',
    'Saya merasa puas dengan pelaksanaan MK Budaya Tiongkok secara keseluruhan',
