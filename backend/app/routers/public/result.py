@@ -26,7 +26,6 @@ async def get_result(kode: str, db: AsyncSession = Depends(get_db)):
     anon.last_accessed = datetime.now(timezone.utc)
 
     response = await db.get(Response, anon.response_id)
-    course = await db.get_one.__class__  # noqa
     from app.models.academic import Course
     course = await db.get(Course, response.course_id)
 
