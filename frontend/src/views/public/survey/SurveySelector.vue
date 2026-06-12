@@ -29,17 +29,12 @@
         </select>
       </div>
 
+      <!-- Role: hanya mahasiswa. Dosen punya alur sendiri via /survey/dosen (login) -->
       <div class="form-group">
-        <label class="form-label">{{ t('survey.select_role') }} *</label>
-        <div style="display:flex; gap:12px;">
-          <label class="radio-option" :class="{ active: survey.selectedRole === 'mahasiswa' }">
-            <input type="radio" v-model="survey.selectedRole" value="mahasiswa" />
-            {{ t('survey.role_mahasiswa') }}
-          </label>
-          <label class="radio-option" :class="{ active: survey.selectedRole === 'dosen' }">
-            <input type="radio" v-model="survey.selectedRole" value="dosen" />
-            {{ t('survey.role_dosen') }}
-          </label>
+        <label class="form-label">{{ t('survey.select_role') }}</label>
+        <div style="background:#f7fafc; border-radius:8px; padding:10px 14px; font-size:13px; color:#4a5568; border:1px solid #e2e8f0;">
+          &#127891; {{ t('survey.role_mahasiswa') }}
+          <span style="color:#718096; margin-left:8px;">(Survey ini untuk mahasiswa. Dosen? <router-link to="/login" style="color:#3182ce;">Login di sini</router-link>)</span>
         </div>
       </div>
 
@@ -85,6 +80,7 @@ const canProceed = computed(() =>
 )
 
 onMounted(async () => {
+  survey.selectedRole = 'mahasiswa'
   const { data } = await publicApi.getUniversities()
   universities.value = data.data
 })

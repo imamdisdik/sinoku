@@ -48,8 +48,17 @@ export const mapCpmkCpls = (cpmkId: number, cpl_ids: number[]) =>
 export const unmapCpmkCpl = (cpmkId: number, cplId: number) =>
   api.delete(`/admin/cpmks/${cpmkId}/cpls/${cplId}`)
 
-// User Management (UC-AD-02)
+// User Management
 export const getUsers = (params?: object) => api.get('/admin/users', { params })
 export const createUser = (data: object) => api.post('/admin/users', data)
 export const updateUser = (id: string, data: object) => api.put(`/admin/users/${id}`, data)
 export const toggleUserActive = (id: string) => api.patch(`/admin/users/${id}/toggle`)
+
+// RPS
+export const getRpsList = (params?: object) => api.get('/admin/rps', { params })
+export const createRps = (data: object) => api.post('/admin/rps', data)
+export const updateRps = (id: number, data: object) => api.put(`/admin/rps/${id}`, data)
+export const deleteRps = (id: number) => api.delete(`/admin/rps/${id}`)
+export const getRpsChecklist = (rpsId: number) => api.get(`/admin/rps/${rpsId}/checklist`)
+export const updateRpsChecklist = (rpsId: number, itemId: number, data: object) =>
+  api.patch(`/admin/rps/${rpsId}/checklist/${itemId}`, data)

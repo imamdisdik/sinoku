@@ -12,6 +12,7 @@ from app.routers.public.result import router as result_router
 from app.routers.admin.academic import router as academic_router
 from app.routers.admin.dashboard import router as dashboard_router
 from app.routers.admin.users import router as users_router
+from app.routers.admin.rps import router as rps_router
 
 app = FastAPI(
     title="SINOKU API",
@@ -39,6 +40,7 @@ app.include_router(result_router,    prefix=API_PREFIX)
 app.include_router(academic_router,  prefix=API_PREFIX)
 app.include_router(dashboard_router, prefix=API_PREFIX)
 app.include_router(users_router,     prefix=API_PREFIX)
+app.include_router(rps_router,       prefix=API_PREFIX)
 
 
 @app.get("/health")
