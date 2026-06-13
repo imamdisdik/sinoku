@@ -101,4 +101,5 @@ async def toggle_accessible(
     if not anon:
         raise HTTPException(status_code=404, detail="Kode tidak ditemukan")
     anon.is_accessible = not anon.is_accessible
+    await db.commit()
     return {"kode": anon.kode, "is_accessible": anon.is_accessible}

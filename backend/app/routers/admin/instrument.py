@@ -191,7 +191,8 @@ async def create_item(
 
     item = InstrumentItem(**body.model_dump())
     db.add(item)
-    await db.flush()
+    await db.commit()
+    await db.refresh(item)
     return ItemOut.model_validate(item)
 
 
@@ -207,6 +208,8 @@ async def update_item(
         raise HTTPException(status_code=404, detail="Item tidak ditemukan")
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(item, field, val)
+    await db.commit()
+    await db.refresh(item)
     return ItemOut.model_validate(item)
 
 
@@ -220,6 +223,7 @@ async def toggle_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item tidak ditemukan")
     item.is_active = not item.is_active
+    await db.commit()
     return {"id": item.id, "kode": item.kode, "is_active": item.is_active}
 
 
@@ -233,6 +237,7 @@ async def delete_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item tidak ditemukan")
     await db.delete(item)
+    await db.commit()
 
 
 # ── Open Questions ────────────────────────────────────────────────────────────
@@ -253,7 +258,8 @@ async def create_open_question(
 ):
     oq = OpenQuestion(**body.model_dump())
     db.add(oq)
-    await db.flush()
+    await db.commit()
+    await db.refresh(oq)
     return OpenQOut.model_validate(oq)
 
 
@@ -269,6 +275,8 @@ async def update_open_question(
         raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(oq, field, val)
+    await db.commit()
+    await db.refresh(oq)
     return OpenQOut.model_validate(oq)
 
 
@@ -282,4 +290,5 @@ async def toggle_open_question(
     if not oq:
         raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
     oq.is_active = not oq.is_active
+    await db.commit()
     return {"id": oq.id, "kode": oq.kode, "is_active": oq.is_active}
