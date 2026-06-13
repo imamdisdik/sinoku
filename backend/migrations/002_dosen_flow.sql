@@ -15,8 +15,16 @@ ALTER TABLE responses
 CREATE INDEX IF NOT EXISTS idx_responses_user_id ON responses(user_id);
 
 -- 4. Constraint: salah satu harus terisi (user_id untuk dosen, respondent_id untuk mahasiswa)
-ALTER TABLE responses
-  ADD CONSTRAINT chk_responses_identity
-  CHECK (user_id IS NOT NULL OR respondent_id IS NOT NULL);
+--    Guard agar idempotent — tidak error saat migrasi dijalankan ulang.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_responses_identity'
+  ) THEN
+    ALTER TABLE responses
+      ADD CONSTRAINT chk_responses_identity
+      CHECK (user_id IS NOT NULL OR respondent_id IS NOT NULL);
+  END IF;
+END$$;
 
 COMMIT;
