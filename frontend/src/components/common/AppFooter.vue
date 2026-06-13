@@ -2,7 +2,7 @@
   <footer class="footer">
     <div class="container footer__inner">
       <span>© {{ year }} SINOKU — Sistem Evaluasi Mata Kuliah Budaya Tiongkok</span>
-      <span class="footer__right">Berbasis CIPP &middot; Universitas Indonesia</span>
+      <span class="footer__right">Berbasis CIPP</span>
     </div>
   </footer>
 </template>
