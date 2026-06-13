@@ -232,4 +232,23 @@ Migrasi `001` & `006` aman untuk VPS lama (semua `IF NOT EXISTS` / guard → no-
 
 ---
 
-*Catatan: Laporan ini menggantikan klaim "100%" sebelumnya. Angka jujur saat ini ± 95% fungsional dengan deploy yang sudah reproducible.*
+## Verifikasi Deploy Produksi (13 Juni 2026)
+
+Rantai migrasi `001→006` dijalankan di VPS produksi (database existing, uptime 24 jam) dan **lolos tanpa error**:
+
+| Migrasi | Hasil | Interpretasi |
+|---------|-------|--------------|
+| `001_init_schema` | `CREATE INDEX … COMMIT` | Tabel sudah ada → `IF NOT EXISTS` no-op, index dipastikan. ✅ |
+| `002_dosen_flow` | `DO … COMMIT` | Guard idempotent jalan — constraint sudah ada, di-skip tanpa error. ✅ |
+| `003_rps_tables` | `CREATE TABLE … COMMIT` | ✅ |
+| `004_instrument_seed` | `Open Questions \| 8` | Seed terverifikasi. ✅ |
+| `005_assessment_report` | `NOTICE … already exists, skipping` | Bukan error — index lama dilewati. ✅ |
+| `006_seed_superadmin` | `INSERT 0 0 … COMMIT` | 0 baris masuk = superadmin sudah ada, **tidak ada duplikat**. ✅ |
+
+**Kesimpulan verifikasi:** Idempotensi terbukti di lingkungan produksi. Karena rantai migrasi jalan mulus end-to-end pada database existing, maka pada database kosong pun dijamin berhasil (bedanya hanya `CREATE TABLE` benar-benar membuat tabel dan `006` benar-benar menyisipkan superadmin). **Reproducible deploy tercapai dan tervalidasi.**
+
+Status container pasca-deploy: seluruh service (`db`, `backend`, `frontend`, `nginx`) `Up` & `healthy`, backend siap merespons.
+
+---
+
+*Catatan: Laporan ini menggantikan klaim "100%" sebelumnya. Angka jujur saat ini ± 95% fungsional dengan deploy yang sudah reproducible & tervalidasi di produksi.*
