@@ -166,10 +166,13 @@ B1.1.001,1,1,"Dosen menjelaskan...","Dosen saya menjelaskan...","","",,"likert",
 
 ## Migrasi Database
 
-| File | Isi | Dijalankan |
-|------|-----|------------|
-| `001_init.sql` | Tabel inti (users, univ, program, course, cpl, cpmk, instrument, response, respondent) | Minggu 1 |
-| `002_rps.sql` | Tabel RPS + checklist | Minggu 4 |
-| `003_seed_items.sql` | 59 item instrumen CIPP (ID+ZH) | Minggu 1 |
-| `004_open_questions.sql` | Pertanyaan terbuka | Minggu 3 |
-| `005_assessment_report.sql` | assessment_schemes, rubrics, mbkm_integrations, diagnostic_reports | Minggu 5–6 |
+| File | Isi |
+|------|-----|
+| `001_init_schema.sql` | **Skema inti** — 24 tabel (akademik, auth+sessions, instrumen CIPP, responden+junction, respons, kode anonim) + index. Idempotent. |
+| `002_dosen_flow.sql` | Kolom `user_id` di responses + constraint identitas (idempotent) |
+| `003_rps_tables.sql` | Tabel RPS: rps_versions, rps_checklist_items, rps_checklist_responses |
+| `004_instrument_seed.sql` | Seed 4 dimensi, 15 sub-dimensi, 59 item CIPP, 8 pertanyaan terbuka |
+| `005_assessment_report.sql` | assessment_schemes, rubrics, mbkm_integrations, diagnostic_reports |
+| `006_seed_superadmin.sql` | Akun superadmin default (idempotent) |
+
+> Jalankan berurutan via `./scripts/deploy.sh` atau `setup-vps.sh` — semua idempotent.
