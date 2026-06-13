@@ -190,14 +190,15 @@ async def list_reports(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    q = select(DiagnosticReport).where(
-        DiagnosticReport.generated_by == current_user.id
-    )
     if current_user.role == "superadmin":
         q = select(DiagnosticReport)
     elif current_user.university_id:
         q = select(DiagnosticReport).where(
             DiagnosticReport.university_id == current_user.university_id
+        )
+    else:
+        q = select(DiagnosticReport).where(
+            DiagnosticReport.generated_by == current_user.id
         )
     if course_id:
         q = q.where(DiagnosticReport.course_id == course_id)

@@ -75,9 +75,15 @@ async def export_responses(
 ):
     """Export semua respons lengkap beserta profil responden."""
     q = select(Response, Respondent, Course).where(Response.is_complete == True)
-    q = _scope_responses(q, current_user)
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        q = q.join(Course, Response.course_id == Course.id).join(
+            Program, Course.program_id == Program.id
+        ).where(Program.university_id == current_user.university_id)
+        if current_user.role == "dosen" and current_user.program_id:
+            q = q.where(Course.program_id == current_user.program_id)
+    else:
+        q = q.join(Course, Response.course_id == Course.id)
     q = q.outerjoin(Respondent, Response.respondent_id == Respondent.id)
-    q = q.join(Course, Response.course_id == Course.id)
     if course_id:
         q = q.where(Response.course_id == course_id)
     if role:
@@ -149,10 +155,6 @@ async def export_scores(
         .where(InstrumentItem.is_active == True)
         .order_by(CippDimension.urutan, CippSubDimension.urutan, InstrumentItem.nomor_urut)
     )).all()
-
-    # Hitung rata-rata per item
-    def avg_for(item_id, response_ids):
-        return None  # placeholder — dihitung di bawah
 
     # Batch query skor
     all_resp_ids = ids_dosen + ids_mhs

@@ -6,7 +6,7 @@
       <div class="action-group">
         <button class="btn-export" @click="doExportXlsx">&#128196; Excel</button>
         <button class="btn-export" @click="doExportCsv">&#128196; CSV</button>
-        <button class="btn-print" @click="window.print()">&#128424; Cetak / PDF</button>
+        <button class="btn-print" @click="doPrint">&#128424; Cetak / PDF</button>
       </div>
     </div>
 
@@ -198,6 +198,10 @@ function triggerDownload(blob: Blob, filename: string) {
   const a = document.createElement('a')
   a.href = url; a.download = filename; a.click()
   URL.revokeObjectURL(url)
+}
+
+function doPrint() {
+  window.print()
 }
 
 async function doExportXlsx() {
