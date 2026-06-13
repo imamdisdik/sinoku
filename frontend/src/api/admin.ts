@@ -101,3 +101,20 @@ export const createMbkm = (data: object) => api.post('/admin/assessment/mbkm', d
 export const updateMbkm = (id: number, data: object) => api.put(`/admin/assessment/mbkm/${id}`, data)
 export const deleteMbkm = (id: number) => api.delete(`/admin/assessment/mbkm/${id}`)
 export const toggleMbkm = (id: number) => api.patch(`/admin/assessment/mbkm/${id}/toggle`)
+
+// Export (UC-18) — gunakan window.open atau link download langsung
+export const exportUrl = (path: string, params?: Record<string, any>) => {
+  const token = localStorage.getItem('access_token')
+  const qs = params ? '&' + new URLSearchParams(params).toString() : ''
+  return `/api/v1/admin/export/${path}?format=xlsx${qs}`
+}
+export const exportWithAuth = (path: string, params?: Record<string, any>) =>
+  api.get(`/admin/export/${path}`, { params: { format: 'xlsx', ...params }, responseType: 'blob' })
+export const exportCsvWithAuth = (path: string, params?: Record<string, any>) =>
+  api.get(`/admin/export/${path}`, { params: { format: 'csv', ...params }, responseType: 'blob' })
+
+// Diagnostic Report (UC-19)
+export const getReports = (params?: object) => api.get('/admin/reports', { params })
+export const generateReport = (data: object) => api.post('/admin/reports', data)
+export const getReport = (id: string) => api.get(`/admin/reports/${id}`)
+export const deleteReport = (id: string) => api.delete(`/admin/reports/${id}`)

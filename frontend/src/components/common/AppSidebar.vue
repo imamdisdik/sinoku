@@ -50,6 +50,7 @@
         <span class="nav-group-label">RPS & Laporan</span>
         <router-link to="/admin/rps" class="nav-item">&#128196; RPS</router-link>
         <router-link to="/admin/reports" class="nav-item">&#128221; Laporan Diagnostik</router-link>
+        <router-link to="/admin/export" class="nav-item">&#11123; Export Data</router-link>
       </div>
 
       <div class="nav-group" v-if="!isDosen">

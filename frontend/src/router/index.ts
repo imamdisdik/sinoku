@@ -39,6 +39,8 @@ const router = createRouter({
         { path: 'anonymous-codes', name: 'admin-anon', component: () => import('@/views/admin/anonymous/AnonymousCodeList.vue') },
         { path: 'analytics', name: 'admin-analytics', component: () => import('@/views/admin/analytics/AnalyticsDashboard.vue') },
         { path: 'reports', name: 'admin-reports', component: () => import('@/views/admin/report/DiagnosticHistory.vue') },
+        { path: 'reports/:id', name: 'admin-report-preview', component: () => import('@/views/admin/report/DiagnosticPreview.vue') },
+        { path: 'export', name: 'admin-export', component: () => import('@/views/admin/report/ExportData.vue') },
         { path: 'users', name: 'admin-users', component: () => import('@/views/admin/users/UserList.vue') },
       ],
     },

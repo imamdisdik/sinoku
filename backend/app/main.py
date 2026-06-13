@@ -21,6 +21,8 @@ from app.routers.admin.analytics import router as analytics_router
 from app.routers.admin.instrument import router as instrument_router
 from app.routers.admin.anonymous import router as anonymous_router
 from app.routers.admin.assessment import router as assessment_router
+from app.routers.admin.export import router as export_router
+from app.routers.admin.report import router as report_router
 
 app = FastAPI(
     title="SINOKU API",
@@ -53,6 +55,8 @@ app.include_router(analytics_router,  prefix=API_PREFIX)
 app.include_router(instrument_router, prefix=API_PREFIX)
 app.include_router(anonymous_router,  prefix=API_PREFIX)
 app.include_router(assessment_router, prefix=API_PREFIX)
+app.include_router(export_router,     prefix=API_PREFIX)
+app.include_router(report_router,     prefix=API_PREFIX)
 
 
 @app.on_event("startup")
