@@ -12,6 +12,7 @@
           <option value="cipp-scores">Skor Sub-Dimensi</option>
           <option value="heatmap">Problem Heatmap</option>
           <option value="comparison">Dosen vs Mahasiswa</option>
+          <option value="comparison-groups">Perbandingan Univ/Prodi/MK</option>
           <option value="distribution">Distribusi Skor</option>
           <option value="cpl-matrix">Matriks CPL-CPMK</option>
           <option value="trend">Tren Respons</option>
@@ -204,6 +205,44 @@
         </div>
       </div>
 
+      <!-- TAB: Perbandingan Univ/Prodi/MK (UC-17b) -->
+      <div v-if="activeTab === 'comparison-groups'" class="tab-content">
+        <div class="page-header" style="margin-bottom:16px">
+          <div class="section-title" style="margin:0">Perbandingan Skor CIPP antar {{ groupByLabel }}</div>
+          <select v-model="groupBy" @change="fetchComparisonGroups" class="filter-select" style="font-size:12px">
+            <option value="university">Per Universitas</option>
+            <option value="program">Per Program Studi</option>
+            <option value="course">Per Mata Kuliah</option>
+          </select>
+        </div>
+        <div v-if="loadingGroups" class="empty-state">Memuat data perbandingan...</div>
+        <div v-else-if="!groupsData.data?.length" class="empty-state">Belum ada data respons untuk dibandingkan</div>
+        <div v-else class="matrix-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ groupByLabel }}</th>
+                <th>N Respons</th>
+                <th v-for="d in groupsData.dimensions" :key="d.kode" :title="d.nama">
+                  <span :style="{ color: d.warna_hex }">{{ d.kode }}</span>
+                </th>
+                <th>Rata-rata</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in groupsData.data" :key="row.group_id">
+                <td><strong>{{ row.group_nama }}</strong></td>
+                <td>{{ row.n_responses }}</td>
+                <td v-for="d in groupsData.dimensions" :key="d.kode">
+                  <span :class="scoreClass(row.cipp[d.kode])">{{ row.cipp[d.kode] != null ? row.cipp[d.kode].toFixed(2) : '—' }}</span>
+                </td>
+                <td><strong>{{ rowAvg(row) }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- TAB: Distribusi Skor -->
       <div v-if="activeTab === 'distribution'" class="tab-content">
         <div class="section-title">Distribusi Skor Likert (1–5) per Dimensi</div>
@@ -315,8 +354,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { getDashboardKpi, getProblemHeatmap, getCourses, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix } from '@/api/admin'
+import { ref, computed, onMounted, watch } from 'vue'
+import { getDashboardKpi, getProblemHeatmap, getCourses, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix, getAnalyticsComparisonGroups } from '@/api/admin'
 
 const loading = ref(true)
 const loadingComparison = ref(false)
@@ -335,6 +374,9 @@ const comparisonData = ref<any>({ total_dosen: 0, total_mahasiswa: 0, dimensions
 const distributionData = ref<any>({ dimensions: [] })
 const cippScoresData = ref<any>({ total_responses: 0, total_dosen: 0, total_mahasiswa: 0, dimensions: [] })
 const matrixData = ref<any>({ cpls: [], cpmks: [], matrix: [] })
+const loadingGroups = ref(false)
+const groupBy = ref('university')
+const groupsData = ref<any>({ group_by: 'university', dimensions: [], data: [] })
 
 const COLORS: Record<string, string> = { B: '#3182ce', C: '#38a169', D: '#d69e2e', E: '#e53e3e' }
 
@@ -431,6 +473,20 @@ async function fetchDistribution() {
 function getCell(cpmkId: number, cplId: number) {
   return matrixData.value.matrix?.find((m: any) => m.cpmk_id === cpmkId && m.cpl_id === cplId)
 }
+const groupByLabel = computed(() => ({ university: 'Universitas', program: 'Program Studi', course: 'Mata Kuliah' }[groupBy.value] ?? 'Grup'))
+function rowAvg(row: any) {
+  const vals = Object.values(row.cipp).filter((v: any) => v != null) as number[]
+  if (!vals.length) return '—'
+  return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)
+}
+async function fetchComparisonGroups() {
+  loadingGroups.value = true
+  try {
+    const res = await getAnalyticsComparisonGroups(groupBy.value)
+    groupsData.value = res.data
+  } catch { groupsData.value = { group_by: groupBy.value, dimensions: [], data: [] } }
+  finally { loadingGroups.value = false }
+}
 async function fetchCippScores() {
   loadingCippScores.value = true
   try {
@@ -456,6 +512,11 @@ async function fetchAll() {
   try { await Promise.all([fetchKpi(), fetchHeatmap(), fetchComparison(), fetchDistribution(), fetchCippScores()]) }
   finally { loading.value = false }
 }
+
+// Lazy-load tab Perbandingan Univ/Prodi/MK saat pertama dibuka
+watch(activeTab, (tab) => {
+  if (tab === 'comparison-groups' && !groupsData.value.data.length) fetchComparisonGroups()
+})
 
 onMounted(async () => {
   const res = await getCourses({ limit: 200 }).catch(() => ({ data: { data: [] } }))

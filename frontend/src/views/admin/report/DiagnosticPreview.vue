@@ -98,6 +98,89 @@
         </div>
       </div>
 
+      <!-- UC-19c: Keselarasan RPS & Asesmen -->
+      <div class="section-card" v-if="snap.rps_alignment">
+        <h2 class="section-title">Keselarasan RPS &amp; Asesmen</h2>
+        <div class="align-grid">
+          <div class="align-stat">
+            <div class="align-label">Status RPS</div>
+            <div class="align-val">
+              <span v-if="snap.rps_alignment.has_rps" :class="'badge-' + (snap.rps_alignment.rps_status === 'aktif' ? 'ok' : 'warn')">
+                {{ snap.rps_alignment.rps_status }} {{ snap.rps_alignment.rps_tahun_akademik ? '· ' + snap.rps_alignment.rps_tahun_akademik : '' }}
+              </span>
+              <span v-else class="badge-bad">Belum ada RPS</span>
+            </div>
+          </div>
+          <div class="align-stat">
+            <div class="align-label">Kelengkapan Checklist</div>
+            <div class="align-val">
+              {{ snap.rps_alignment.checklist_pct != null ? snap.rps_alignment.checklist_pct + '%' : '—' }}
+              <span class="align-sub">({{ snap.rps_alignment.checklist_fulfilled }}/{{ snap.rps_alignment.checklist_total }})</span>
+            </div>
+          </div>
+          <div class="align-stat">
+            <div class="align-label">Skema Asesmen</div>
+            <div class="align-val">{{ snap.rps_alignment.scheme_count }} komponen</div>
+          </div>
+          <div class="align-stat">
+            <div class="align-label">Total Bobot Asesmen</div>
+            <div class="align-val">
+              {{ snap.rps_alignment.total_bobot_asesmen }}%
+              <span :class="snap.rps_alignment.bobot_lengkap ? 'badge-ok' : 'badge-warn'">
+                {{ snap.rps_alignment.bobot_lengkap ? '✓' : '≠100%' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-if="snap.rps_alignment.unmet_mandatory?.length" class="align-warn-box">
+          <strong>Komponen wajib belum terpenuhi:</strong>
+          {{ snap.rps_alignment.unmet_mandatory.join(', ') }}
+        </div>
+      </div>
+
+      <!-- UC-19d: Analisis CPL-CPMK -->
+      <div class="section-card" v-if="snap.cpl_cpmk_analysis">
+        <h2 class="section-title">Analisis CPL &amp; CPMK</h2>
+        <div class="align-grid">
+          <div class="align-stat">
+            <div class="align-label">Total CPMK</div>
+            <div class="align-val">{{ snap.cpl_cpmk_analysis.total_cpmk }}</div>
+          </div>
+          <div class="align-stat">
+            <div class="align-label">CPL Terpetakan</div>
+            <div class="align-val">{{ snap.cpl_cpmk_analysis.total_cpl_terpetakan }}</div>
+          </div>
+          <div class="align-stat">
+            <div class="align-label">Cakupan Pemetaan CPMK→CPL</div>
+            <div class="align-val">
+              {{ snap.cpl_cpmk_analysis.coverage_pct != null ? snap.cpl_cpmk_analysis.coverage_pct + '%' : '—' }}
+              <span class="align-sub">({{ snap.cpl_cpmk_analysis.cpmk_termapping }}/{{ snap.cpl_cpmk_analysis.total_cpmk }})</span>
+            </div>
+          </div>
+          <div class="align-stat">
+            <div class="align-label">Total Bobot CPMK</div>
+            <div class="align-val">
+              {{ snap.cpl_cpmk_analysis.total_bobot_cpmk }}%
+              <span :class="snap.cpl_cpmk_analysis.bobot_cpmk_lengkap ? 'badge-ok' : 'badge-warn'">
+                {{ snap.cpl_cpmk_analysis.bobot_cpmk_lengkap ? '✓' : '≠100%' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-if="snap.cpl_cpmk_analysis.cpmk_belum_termapping?.length" class="align-warn-box">
+          <strong>CPMK belum dipetakan ke CPL:</strong>
+          {{ snap.cpl_cpmk_analysis.cpmk_belum_termapping.join(', ') }}
+        </div>
+      </div>
+
+      <!-- UC-19f: Saran Revisi RPS -->
+      <div class="section-card" v-if="snap.rps_suggestions?.length">
+        <h2 class="section-title">Saran Revisi RPS</h2>
+        <ul class="saran-list">
+          <li v-for="(s, i) in snap.rps_suggestions" :key="i" class="saran-item">{{ s }}</li>
+        </ul>
+      </div>
+
       <!-- Profil Responden -->
       <div class="section-card" v-if="snap.total_mahasiswa > 0">
         <h2 class="section-title">Profil Responden Mahasiswa</h2>
@@ -296,6 +379,17 @@ onMounted(async () => {
 .dist-val{width:60px;text-align:right;color:#718096;flex-shrink:0}
 
 .report-footer{text-align:center;font-size:11px;color:#a0aec0;padding:16px 0}
+.align-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.align-stat{border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px}
+.align-label{font-size:11px;color:#718096;margin-bottom:4px}
+.align-val{font-size:16px;font-weight:700;color:#2d3748}
+.align-sub{font-size:12px;font-weight:400;color:#a0aec0;margin-left:4px}
+.badge-ok{background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:700}
+.badge-warn{background:#feebc8;color:#9c4221;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:700}
+.badge-bad{background:#fed7d7;color:#9b2c2c;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:700}
+.align-warn-box{margin-top:12px;background:#fffaf0;border:1px solid #feebc8;border-radius:8px;padding:10px 14px;font-size:13px;color:#7b341e}
+.saran-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.saran-item{font-size:13px;color:#2d3748;line-height:1.5}
 
 @media print {
   .no-print { display: none !important; }

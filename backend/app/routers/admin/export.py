@@ -8,7 +8,7 @@ from typing import Optional
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, require_superadmin
 from app.models.auth import User
 from app.models.response import Response, ResponseItem
 from app.models.respondent import Respondent
@@ -71,9 +71,12 @@ async def export_responses(
     course_id: Optional[int] = None,
     role: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_superadmin),
 ):
-    """Export semua respons lengkap beserta profil responden."""
+    """Export semua respons lengkap beserta profil responden.
+
+    UC-18d: data mentah individual hanya untuk superadmin.
+    """
     q = select(Response, Respondent, Course).where(Response.is_complete == True)
     if current_user.role in ("admin", "dosen") and current_user.university_id:
         q = q.join(Course, Response.course_id == Course.id).join(
@@ -221,9 +224,12 @@ async def export_respondents(
     format: str = Query("xlsx", pattern="^(xlsx|csv)$"),
     course_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_superadmin),
 ):
-    """Export profil lengkap responden mahasiswa."""
+    """Export profil lengkap responden mahasiswa.
+
+    UC-18d: data mentah individual hanya untuk superadmin.
+    """
     q = (
         select(Respondent, Response, Course)
         .join(Response, Response.respondent_id == Respondent.id)

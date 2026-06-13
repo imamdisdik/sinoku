@@ -2,11 +2,12 @@
   <div>
     <h1 class="page-title">Export Data</h1>
     <p class="page-desc">Unduh data evaluasi dalam format Excel (.xlsx) atau CSV untuk analisis lebih lanjut.</p>
+    <p v-if="!isSuperadmin" class="page-note">ℹ️ Export data mentah individual (respons &amp; profil responden) hanya tersedia untuk Superadmin. Anda dapat mengunduh data agregat skor CIPP.</p>
 
     <div class="export-grid">
 
-      <!-- Export Respons -->
-      <div class="export-card">
+      <!-- Export Respons (UC-18d: data mentah, superadmin only) -->
+      <div class="export-card" v-if="isSuperadmin">
         <div class="card-icon">&#128203;</div>
         <h2 class="card-title">Data Respons</h2>
         <p class="card-desc">Semua respons beserta profil dasar responden, status pengisian, dan mata kuliah.</p>
@@ -52,8 +53,8 @@
         </div>
       </div>
 
-      <!-- Export Profil Responden -->
-      <div class="export-card">
+      <!-- Export Profil Responden (UC-18d: data mentah, superadmin only) -->
+      <div class="export-card" v-if="isSuperadmin">
         <div class="card-icon">&#128100;</div>
         <h2 class="card-title">Profil Responden Mahasiswa</h2>
         <p class="card-desc">Data demografis dan latar belakang mahasiswa yang telah mengisi evaluasi.</p>
@@ -79,10 +80,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 import { exportWithAuth, exportCsvWithAuth, getCourses } from '@/api/admin'
 
 const ui = useUiStore()
+const { isSuperadmin } = storeToRefs(useAuthStore())
 const courses = ref<any[]>([])
 const roleFilter = ref('')
 const courseFilter = ref({ responses: null as number | null, scores: null as number | null, respondents: null as number | null })
@@ -118,7 +122,8 @@ onMounted(async () => {
 
 <style scoped>
 .page-title{font-size:22px;font-weight:700;color:#1a365d;margin-bottom:6px}
-.page-desc{font-size:13px;color:#718096;margin-bottom:24px}
+.page-desc{font-size:13px;color:#718096;margin-bottom:8px}
+.page-note{font-size:12px;color:#7b341e;background:#fffaf0;border:1px solid #feebc8;border-radius:8px;padding:10px 14px;margin-bottom:20px}
 .export-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
 .export-card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;flex-direction:column;gap:12px}
 .card-icon{font-size:32px}

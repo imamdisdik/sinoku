@@ -58,6 +58,7 @@ export const toggleUserActive = (id: string) => api.patch(`/admin/users/${id}/to
 export const getAnalyticsComparison = (params?: object) => api.get('/admin/analytics/comparison', { params })
 export const getAnalyticsDistribution = (params?: object) => api.get('/admin/analytics/distribution', { params })
 export const getAnalyticsCippScores = (params?: object) => api.get('/admin/analytics/cipp-scores', { params })
+export const getAnalyticsComparisonGroups = (groupBy: string) => api.get('/admin/analytics/comparison-groups', { params: { group_by: groupBy } })
 export const getAnalyticsCplCpmkMatrix = (courseId: number) => api.get('/admin/analytics/cpl-cpmk-matrix', { params: { course_id: courseId } })
 
 // Instruments

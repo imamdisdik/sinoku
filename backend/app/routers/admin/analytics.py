@@ -163,6 +163,80 @@ async def distribution(
     return {"dimensions": result}
 
 
+# ══════════════ UC-17b: PERBANDINGAN UNIV / PRODI / MK ════════════════════════
+
+@router.get("/comparison-groups")
+async def comparison_groups(
+    group_by: str = Query("university", pattern="^(university|program|course)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Perbandingan skor CIPP antar Universitas / Program Studi / Mata Kuliah.
+
+    Admin/dosen hanya melihat grup di universitasnya sendiri.
+    """
+    from app.models.academic import University
+
+    # Peta dimensi → item_ids (sekali saja)
+    dims = (await db.execute(
+        select(CippDimension).order_by(CippDimension.urutan)
+    )).scalars().all()
+    dim_items: dict[str, list[int]] = {}
+    for dim in dims:
+        dim_items[dim.kode] = await _get_item_ids_for_dim(db, dim.id)
+
+    # Tentukan daftar grup sesuai scoping
+    scoped_univ = current_user.university_id if current_user.role in ("admin", "dosen") else None
+
+    if group_by == "university":
+        q = select(University)
+        if scoped_univ:
+            q = q.where(University.id == scoped_univ)
+        groups = [(u.id, u.nama_singkat or u.nama) for u in (await db.execute(q.order_by(University.nama))).scalars().all()]
+    elif group_by == "program":
+        q = select(Program)
+        if scoped_univ:
+            q = q.where(Program.university_id == scoped_univ)
+        groups = [(p.id, p.nama_singkat or p.nama) for p in (await db.execute(q.order_by(Program.nama))).scalars().all()]
+    else:  # course
+        q = select(Course)
+        if scoped_univ:
+            q = q.join(Program, Course.program_id == Program.id).where(Program.university_id == scoped_univ)
+        groups = [(c.id, c.kode_mk) for c in (await db.execute(q.order_by(Course.kode_mk))).scalars().all()]
+
+    def _group_response_ids_query(group_id: int):
+        base = select(Response.id).where(Response.is_complete == True)
+        if group_by == "course":
+            return base.where(Response.course_id == group_id)
+        # university / program butuh join ke course→program
+        base = base.join(Course, Response.course_id == Course.id)
+        if group_by == "program":
+            return base.where(Course.program_id == group_id)
+        return base.join(Program, Course.program_id == Program.id).where(Program.university_id == group_id)
+
+    result = []
+    for gid, gname in groups:
+        resp_ids = (await db.execute(_group_response_ids_query(gid))).scalars().all()
+        cipp: dict[str, float | None] = {}
+        for dim in dims:
+            avg, _ = await _avg_scores_for(db, resp_ids, dim_items[dim.kode])
+            cipp[dim.kode] = avg
+        # hanya tampilkan grup yang punya respons
+        if resp_ids:
+            result.append({
+                "group_id": gid,
+                "group_nama": gname,
+                "n_responses": len(resp_ids),
+                "cipp": cipp,
+            })
+
+    return {
+        "group_by": group_by,
+        "dimensions": [{"kode": d.kode, "nama": d.nama_id, "warna_hex": d.warna_hex} for d in dims],
+        "data": result,
+    }
+
+
 # ══════════════ UC-17a: SKOR CIPP PER DIMENSI + SUB-DIMENSI ══════════════════
 
 @router.get("/cipp-scores")

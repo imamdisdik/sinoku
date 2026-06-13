@@ -12,7 +12,9 @@ from app.models.report import DiagnosticReport
 from app.models.response import Response, ResponseItem
 from app.models.respondent import Respondent
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem
-from app.models.academic import University, Program, Course
+from app.models.academic import University, Program, Course, Cpmk, CourseCplMapping, CpmkCplMapping
+from app.models.rps import RpsVersion, RpsChecklistItem, RpsChecklistResponse
+from app.models.assessment import AssessmentScheme
 
 router = APIRouter(prefix="/admin/reports", tags=["admin-reports"])
 
@@ -150,6 +152,11 @@ async def _build_snapshot(course_id: int, periode_start: date, periode_end: date
             if r.hsk_level_mahasiswa:
                 hsk_dist[r.hsk_level_mahasiswa] = hsk_dist.get(r.hsk_level_mahasiswa, 0) + 1
 
+    # UC-19c/d/f: keselarasan RPS-asesmen, analisis CPL-CPMK, saran revisi
+    rps_alignment = await _build_rps_alignment(course_id, db)
+    cpl_cpmk = await _build_cpl_cpmk_analysis(course_id, db)
+    rps_suggestions = _build_rps_suggestions(dimensions_data, rps_alignment, cpl_cpmk)
+
     return {
         "total_respons": len(responses),
         "total_dosen": len(ids_dosen),
@@ -162,7 +169,122 @@ async def _build_snapshot(course_id: int, periode_start: date, periode_end: date
             "semester": semester_dist,
             "hsk": hsk_dist,
         },
+        "rps_alignment": rps_alignment,       # UC-19c
+        "cpl_cpmk_analysis": cpl_cpmk,        # UC-19d
+        "rps_suggestions": rps_suggestions,   # UC-19f
     }
+
+
+async def _build_rps_alignment(course_id: int, db: AsyncSession) -> dict:
+    """UC-19c: Keselarasan RPS & Asesmen — status RPS aktif, % kelengkapan checklist, skema asesmen."""
+    rps = (await db.execute(
+        select(RpsVersion)
+        .where(RpsVersion.course_id == course_id)
+        .order_by(RpsVersion.status == "aktif", RpsVersion.created_at.desc())
+    )).scalars().first()
+
+    checklist_pct = None
+    checklist_total = checklist_fulfilled = 0
+    unmet_components: list[str] = []
+    if rps:
+        rows = (await db.execute(
+            select(RpsChecklistResponse, RpsChecklistItem)
+            .join(RpsChecklistItem, RpsChecklistResponse.checklist_item_id == RpsChecklistItem.id)
+            .where(RpsChecklistResponse.rps_version_id == rps.id)
+        )).all()
+        checklist_total = len(rows)
+        checklist_fulfilled = sum(1 for r, _ in rows if r.is_fulfilled)
+        unmet_components = [item.nama_komponen for r, item in rows if not r.is_fulfilled and item.is_mandatory]
+        if checklist_total:
+            checklist_pct = round(checklist_fulfilled / checklist_total * 100, 1)
+
+    schemes = (await db.execute(
+        select(AssessmentScheme).where(AssessmentScheme.course_id == course_id)
+    )).scalars().all()
+    total_bobot = round(sum(float(s.bobot_persen) for s in schemes), 2)
+
+    return {
+        "has_rps": rps is not None,
+        "rps_status": rps.status if rps else None,
+        "rps_tahun_akademik": rps.tahun_akademik if rps else None,
+        "checklist_pct": checklist_pct,
+        "checklist_fulfilled": checklist_fulfilled,
+        "checklist_total": checklist_total,
+        "unmet_mandatory": unmet_components,
+        "scheme_count": len(schemes),
+        "total_bobot_asesmen": total_bobot,
+        "bobot_lengkap": abs(total_bobot - 100.0) < 0.01,
+    }
+
+
+async def _build_cpl_cpmk_analysis(course_id: int, db: AsyncSession) -> dict:
+    """UC-19d: Analisis CPL-CPMK — jumlah CPMK, CPL terpetakan, dan cakupan pemetaan."""
+    cpmks = (await db.execute(
+        select(Cpmk).where(Cpmk.course_id == course_id, Cpmk.is_active == True)
+    )).scalars().all()
+    cpmk_ids = [c.id for c in cpmks]
+
+    cpl_ids = (await db.execute(
+        select(CourseCplMapping.cpl_id).where(CourseCplMapping.course_id == course_id)
+    )).scalars().all()
+
+    mapped_cpmk_ids: set[int] = set()
+    if cpmk_ids:
+        rows = (await db.execute(
+            select(CpmkCplMapping.cpmk_id).where(CpmkCplMapping.cpmk_id.in_(cpmk_ids))
+        )).scalars().all()
+        mapped_cpmk_ids = set(rows)
+
+    unmapped = [c.kode_cpmk for c in cpmks if c.id not in mapped_cpmk_ids]
+    total_bobot_cpmk = round(sum(float(c.bobot_persen) for c in cpmks), 2)
+    coverage = round(len(mapped_cpmk_ids) / len(cpmks) * 100, 1) if cpmks else None
+
+    return {
+        "total_cpmk": len(cpmks),
+        "total_cpl_terpetakan": len(cpl_ids),
+        "cpmk_termapping": len(mapped_cpmk_ids),
+        "cpmk_belum_termapping": unmapped,
+        "coverage_pct": coverage,
+        "total_bobot_cpmk": total_bobot_cpmk,
+        "bobot_cpmk_lengkap": abs(total_bobot_cpmk - 100.0) < 0.01,
+    }
+
+
+def _build_rps_suggestions(dimensions_data: list, rps_alignment: dict, cpl_cpmk: dict) -> list[str]:
+    """UC-19f: Saran revisi RPS otomatis berdasarkan gap checklist, asesmen, dan skor CIPP rendah."""
+    saran: list[str] = []
+
+    if not rps_alignment["has_rps"]:
+        saran.append("Belum ada dokumen RPS untuk mata kuliah ini. Susun RPS sesuai standar BAN-PT sebelum perkuliahan berikutnya.")
+    else:
+        if rps_alignment["checklist_pct"] is not None and rps_alignment["checklist_pct"] < 100:
+            unmet = rps_alignment["unmet_mandatory"]
+            if unmet:
+                saran.append(f"Lengkapi komponen RPS wajib yang belum terpenuhi: {', '.join(unmet[:5])}.")
+        if not rps_alignment["bobot_lengkap"]:
+            saran.append(f"Total bobot skema asesmen = {rps_alignment['total_bobot_asesmen']}%, idealnya 100%. Tinjau ulang distribusi bobot penilaian.")
+        if rps_alignment["scheme_count"] == 0:
+            saran.append("Belum ada skema asesmen terdaftar. Definisikan komponen penilaian (UTS/UAS/Tugas) beserta bobotnya.")
+
+    if cpl_cpmk["cpmk_belum_termapping"]:
+        saran.append(f"CPMK belum dipetakan ke CPL: {', '.join(cpl_cpmk['cpmk_belum_termapping'][:5])}. Lengkapi pemetaan untuk menjaga keterlacakan capaian.")
+    if not cpl_cpmk["bobot_cpmk_lengkap"] and cpl_cpmk["total_cpmk"] > 0:
+        saran.append(f"Total bobot CPMK = {cpl_cpmk['total_bobot_cpmk']}%, idealnya 100%. Seimbangkan bobot antar CPMK.")
+
+    # Saran berdasarkan dimensi CIPP terlemah
+    scored = [d for d in dimensions_data if d["avg_dosen"] is not None or d["avg_mahasiswa"] is not None]
+    if scored:
+        def dim_avg(d):
+            vals = [v for v in [d["avg_dosen"], d["avg_mahasiswa"]] if v is not None]
+            return sum(vals) / len(vals) if vals else 5.0
+        weakest = min(scored, key=dim_avg)
+        if dim_avg(weakest) < 3.5:
+            label = {"B": "Konteks", "C": "Input", "D": "Proses", "E": "Produk"}.get(weakest["kode"], weakest["kode"])
+            saran.append(f"Dimensi {label} ({weakest['nama']}) memperoleh skor terendah ({round(dim_avg(weakest), 2)}). Prioritaskan revisi RPS pada aspek terkait dimensi ini.")
+
+    if not saran:
+        saran.append("Tidak ada isu kritis terdeteksi. RPS, asesmen, dan pemetaan CPL-CPMK sudah lengkap dan skor CIPP memadai.")
+    return saran
 
 
 def _generate_recommendation(kode: str, avg_d, avg_m) -> str:
