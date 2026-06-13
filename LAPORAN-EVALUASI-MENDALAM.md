@@ -249,6 +249,33 @@ Rantai migrasi `001→006` dijalankan di VPS produksi (database existing, uptime
 
 Status container pasca-deploy: seluruh service (`db`, `backend`, `frontend`, `nginx`) `Up` & `healthy`, backend siap merespons.
 
+### Pembersihan konfigurasi
+- Atribut `version: "3.9"` yang usang dihapus dari `docker-compose.yml` (Compose v2 mengabaikannya) → warning saat deploy hilang. Sudah ter-deploy ke produksi.
+
+---
+
+## Riwayat Perubahan (Putaran Evaluasi Ini)
+
+Urut dari terbaru. Seluruh commit sudah di-push ke `main` & ter-deploy.
+
+| Commit | Jenis | Ringkasan |
+|--------|-------|-----------|
+| `d249791` | chore | Hapus `version` usang di docker-compose + catat verifikasi deploy |
+| `3ed2995` | docs | Laporan evaluasi mendalam per-week + perbaiki tabel migrasi WEEKS.md |
+| `8be9bbf` | feat | **UC-17b** (perbandingan grup), **UC-18d** (superadmin-only), **UC-19c/d/f** (RPS alignment, CPL-CPMK, saran revisi) |
+| `b9d0933` | chore | gitignore `__pycache__` + hapus nama universitas hardcoded di footer |
+| `bfa7559` | feat | **UC-09** Download PDF & **UC-10** Cetak di hasil publik |
+| `d53416d` | fix | **[KRITIS]** Skema database reproducible (`001_init_schema`, `002` idempotent, `006` seed superadmin) |
+| `fe18ec2` | feat | **UC-17a**, **UC-17c**, **UC-15 import CSV** + dokumentasi week |
+
+### Pemetaan ke prioritas perbaikan
+| Prioritas | Isi | Status |
+|-----------|-----|--------|
+| **#1** | Skema database reproducible | ✅ Selesai & tervalidasi produksi |
+| **#2** | Hasil publik: PDF + Cetak | ✅ Selesai |
+| **#3** | UC-17b, UC-18d, UC-19c/d/f | ✅ Selesai |
+| — | UC-08b, UC-18b, UC-18e | ⏸️ Ditunda (alasan teknis di atas) |
+
 ---
 
 *Catatan: Laporan ini menggantikan klaim "100%" sebelumnya. Angka jujur saat ini ± 95% fungsional dengan deploy yang sudah reproducible & tervalidasi di produksi.*
