@@ -48,7 +48,11 @@
                 </label>
               </div>
             </div>
-            <button class="btn btn-primary" @click="openCreate">+ Tambah Item</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary" @click="triggerImport">&#8645; Import CSV</button>
+              <input ref="importInputRef" type="file" accept=".csv" style="display:none" @change="doImport" />
+              <button class="btn btn-primary" @click="openCreate">+ Tambah Item</button>
+            </div>
           </div>
 
           <div v-if="loadingItems" class="loading-state">Memuat item...</div>
@@ -244,7 +248,10 @@ import {
   getInstrumentDimensions, getInstrumentItems,
   createInstrumentItem, updateInstrumentItem, toggleInstrumentItem,
   getOpenQuestions, createOpenQuestion, updateOpenQuestion, toggleOpenQuestion,
+  importInstrumentItems,
 } from '@/api/admin'
+import { useUiStore } from '@/stores/ui'
+const ui = useUiStore()
 
 const loading = ref(true)
 const loadingItems = ref(false)
@@ -256,12 +263,33 @@ const includeInactive = ref(false)
 const items = ref<any[]>([])
 const openQuestions = ref<any[]>([])
 
+const importInputRef = ref<HTMLInputElement | null>(null)
 const selectedDim = computed(() => dimensions.value.find(d => d.id === selectedDimId.value) ?? null)
 const allSubDims = computed(() => dimensions.value.flatMap((d: any) => d.sub_dimensions ?? []))
 
 function subDimLabel(sdId: number) {
   const sd = allSubDims.value.find((s: any) => s.id === sdId)
   return sd ? sd.kode : sdId
+}
+
+function triggerImport() {
+  importInputRef.value?.click()
+}
+async function doImport(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const res = await importInstrumentItems(file)
+    const { imported, skipped, errors } = res.data
+    ui.showToast(`Import selesai: ${imported} item diimpor, ${skipped} dilewati`, imported > 0 ? 'success' : 'warning')
+    if (errors?.length) console.warn('Import errors:', errors)
+    await fetchDimensions()
+    if (selectedDimId.value) await fetchItems()
+  } catch {
+    ui.showToast('Gagal mengimpor file CSV', 'error')
+  } finally {
+    if (importInputRef.value) importInputRef.value.value = ''
+  }
 }
 
 async function fetchDimensions() {

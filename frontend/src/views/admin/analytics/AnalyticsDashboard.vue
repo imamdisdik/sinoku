@@ -9,9 +9,11 @@
         </select>
         <select v-model="activeTab" class="filter-select">
           <option value="overview">Ringkasan CIPP</option>
+          <option value="cipp-scores">Skor Sub-Dimensi</option>
           <option value="heatmap">Problem Heatmap</option>
           <option value="comparison">Dosen vs Mahasiswa</option>
           <option value="distribution">Distribusi Skor</option>
+          <option value="cpl-matrix">Matriks CPL-CPMK</option>
           <option value="trend">Tren Respons</option>
         </select>
       </div>
@@ -73,6 +75,53 @@
               <span class="legend-dot" :style="{ background: dimensiColor(d.kode) }"></span>
               <strong>{{ d.kode }}</strong>: {{ d.nama }} — {{ d.rata_rata?.toFixed(2) }}/5.00
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Skor Sub-Dimensi (UC-17a) -->
+      <div v-if="activeTab === 'cipp-scores'" class="tab-content">
+        <div class="page-header" style="margin-bottom:16px">
+          <div class="section-title" style="margin:0">Skor CIPP per Sub-Dimensi</div>
+          <select v-model="cippScoresRole" @change="fetchCippScores" class="filter-select" style="font-size:12px">
+            <option value="">Semua (Dosen + Mahasiswa)</option>
+            <option value="dosen">Dosen</option>
+            <option value="mahasiswa">Mahasiswa</option>
+          </select>
+        </div>
+        <div v-if="loadingCippScores" class="empty-state">Memuat data...</div>
+        <div v-else-if="!cippScoresData.dimensions?.length" class="empty-state">Belum ada data</div>
+        <div v-else>
+          <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+            <div class="kpi-card"><div class="kpi-value">{{ cippScoresData.total_responses }}</div><div class="kpi-label">Total Respons</div></div>
+            <div class="kpi-card"><div class="kpi-value">{{ cippScoresData.total_dosen }}</div><div class="kpi-label">Dosen</div></div>
+            <div class="kpi-card"><div class="kpi-value">{{ cippScoresData.total_mahasiswa }}</div><div class="kpi-label">Mahasiswa</div></div>
+          </div>
+          <div v-for="dim in cippScoresData.dimensions" :key="dim.kode" class="cipp-scores-dim">
+            <div class="cipp-scores-header" :style="{ borderLeftColor: dimensiColor(dim.kode) }">
+              <span class="cipp-kode-sm" :style="{ color: dimensiColor(dim.kode) }">{{ dim.kode }}</span>
+              <span class="cipp-nama-sm">{{ dim.nama }}</span>
+              <span class="cipp-avg-sm">Rata-rata: <strong>{{ dim.rata_rata?.toFixed(2) ?? '—' }}</strong> / 5.00</span>
+              <span class="cipp-std-sm">σ = {{ dim.std_dev?.toFixed(2) ?? '—' }}</span>
+              <span class="cipp-n-sm">n = {{ dim.n }}</span>
+            </div>
+            <table class="data-table" style="margin-top:8px">
+              <thead><tr><th>Sub-Dimensi</th><th>Rata-rata</th><th>Std Dev</th><th>N</th><th>Interpretasi</th><th>Bar</th></tr></thead>
+              <tbody>
+                <tr v-for="sd in dim.sub_dimensions" :key="sd.kode">
+                  <td><strong>{{ sd.kode }}</strong> — {{ sd.nama }}</td>
+                  <td><span :class="scoreClass(sd.rata_rata)">{{ sd.rata_rata?.toFixed(2) ?? '—' }}</span></td>
+                  <td>{{ sd.std_dev?.toFixed(2) ?? '—' }}</td>
+                  <td>{{ sd.n }}</td>
+                  <td>{{ interpretasi(sd.rata_rata) }}</td>
+                  <td style="min-width:120px">
+                    <div class="cipp-bar-track" style="height:8px">
+                      <div class="cipp-bar-fill" :style="{ width: pct(sd.rata_rata), background: dimensiColor(dim.kode) }" />
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -193,6 +242,58 @@
         </div>
       </div>
 
+      <!-- TAB: Matriks CPL-CPMK (UC-17c) -->
+      <div v-if="activeTab === 'cpl-matrix'" class="tab-content">
+        <div class="page-header" style="margin-bottom:16px">
+          <div class="section-title" style="margin:0">Matriks CPL ↔ CPMK</div>
+          <select v-model.number="matrixCourseId" @change="fetchMatrix" class="filter-select">
+            <option :value="null">— Pilih Mata Kuliah —</option>
+            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode }} — {{ c.nama }}</option>
+          </select>
+        </div>
+        <div v-if="!matrixCourseId" class="empty-state">Pilih mata kuliah untuk melihat matriks CPL-CPMK</div>
+        <div v-else-if="loadingMatrix" class="empty-state">Memuat matriks...</div>
+        <div v-else-if="!matrixData.cpls?.length || !matrixData.cpmks?.length" class="empty-state">
+          Belum ada data CPL / CPMK untuk mata kuliah ini
+        </div>
+        <div v-else class="matrix-wrap">
+          <div class="matrix-info">
+            <strong>{{ matrixData.course?.kode_mk }}</strong> — {{ matrixData.course?.nama }}
+          </div>
+          <div class="matrix-scroll">
+            <table class="matrix-table">
+              <thead>
+                <tr>
+                  <th class="matrix-th-cpmk">CPMK \ CPL</th>
+                  <th v-for="cpl in matrixData.cpls" :key="cpl.id" class="matrix-th-cpl" :title="cpl.deskripsi">
+                    {{ cpl.kode }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="cpmk in matrixData.cpmks" :key="cpmk.id">
+                  <td class="matrix-td-label" :title="cpmk.deskripsi">
+                    <strong>{{ cpmk.kode }}</strong>
+                    <span class="bobot-badge">{{ cpmk.bobot }}%</span>
+                  </td>
+                  <td v-for="cpl in matrixData.cpls" :key="cpl.id"
+                      class="matrix-cell"
+                      :class="getCell(cpmk.id, cpl.id)?.has_mapping ? 'cell-mapped' : 'cell-empty'">
+                    <span v-if="getCell(cpmk.id, cpl.id)?.has_mapping">✓</span>
+                    <span v-else class="cell-dash">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="matrix-legend">
+            <span class="cell-mapped" style="padding:2px 8px;border-radius:4px">✓ = Ada pemetaan</span>
+            &nbsp;&nbsp;
+            <span class="cell-empty" style="padding:2px 8px;border-radius:4px">— = Tidak dipetakan</span>
+          </div>
+        </div>
+      </div>
+
       <!-- TAB: Tren -->
       <div v-if="activeTab === 'trend'" class="tab-content">
         <div class="section-title">Tren Jumlah Respons per Bulan</div>
@@ -215,19 +316,25 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getDashboardKpi, getProblemHeatmap, getCourses, getAnalyticsComparison, getAnalyticsDistribution } from '@/api/admin'
+import { getDashboardKpi, getProblemHeatmap, getCourses, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix } from '@/api/admin'
 
 const loading = ref(true)
 const loadingComparison = ref(false)
 const loadingDistribution = ref(false)
+const loadingCippScores = ref(false)
+const loadingMatrix = ref(false)
 const activeTab = ref('overview')
 const threshold = ref(3.0)
 const filters = ref({ course_id: null as number | null })
+const cippScoresRole = ref('')
+const matrixCourseId = ref<number | null>(null)
 const kpi = ref<any>({ cipp_by_dimension: [], response_trend: [] })
 const heatmapItems = ref<any[]>([])
 const courses = ref<any[]>([])
 const comparisonData = ref<any>({ total_dosen: 0, total_mahasiswa: 0, dimensions: [] })
 const distributionData = ref<any>({ dimensions: [] })
+const cippScoresData = ref<any>({ total_responses: 0, total_dosen: 0, total_mahasiswa: 0, dimensions: [] })
+const matrixData = ref<any>({ cpls: [], cpmks: [], matrix: [] })
 
 const COLORS: Record<string, string> = { B: '#3182ce', C: '#38a169', D: '#d69e2e', E: '#e53e3e' }
 
@@ -321,9 +428,32 @@ async function fetchDistribution() {
   } catch { distributionData.value = { dimensions: [] } }
   finally { loadingDistribution.value = false }
 }
+function getCell(cpmkId: number, cplId: number) {
+  return matrixData.value.matrix?.find((m: any) => m.cpmk_id === cpmkId && m.cpl_id === cplId)
+}
+async function fetchCippScores() {
+  loadingCippScores.value = true
+  try {
+    const params: any = {}
+    if (filters.value.course_id) params.course_id = filters.value.course_id
+    if (cippScoresRole.value) params.role = cippScoresRole.value
+    const res = await getAnalyticsCippScores(params)
+    cippScoresData.value = res.data
+  } catch { cippScoresData.value = { total_responses: 0, total_dosen: 0, total_mahasiswa: 0, dimensions: [] } }
+  finally { loadingCippScores.value = false }
+}
+async function fetchMatrix() {
+  if (!matrixCourseId.value) { matrixData.value = { cpls: [], cpmks: [], matrix: [] }; return }
+  loadingMatrix.value = true
+  try {
+    const res = await getAnalyticsCplCpmkMatrix(matrixCourseId.value)
+    matrixData.value = res.data
+  } catch { matrixData.value = { cpls: [], cpmks: [], matrix: [] } }
+  finally { loadingMatrix.value = false }
+}
 async function fetchAll() {
   loading.value = true
-  try { await Promise.all([fetchKpi(), fetchHeatmap(), fetchComparison(), fetchDistribution()]) }
+  try { await Promise.all([fetchKpi(), fetchHeatmap(), fetchComparison(), fetchDistribution(), fetchCippScores()]) }
   finally { loading.value = false }
 }
 
@@ -420,6 +550,26 @@ onMounted(async () => {
 .trend-val{font-size:12px;font-weight:700;color:#2d3748;margin-bottom:4px}
 .trend-bar{width:36px;background:#3182ce;border-radius:4px 4px 0 0;transition:height .4s}
 .trend-label{font-size:10px;color:#718096;text-align:center;white-space:pre-line}
+.cipp-scores-dim{margin-bottom:24px;border:1px solid #e2e8f0;border-radius:10px;padding:16px}
+.cipp-scores-header{display:flex;align-items:center;gap:14px;border-left:4px solid;padding-left:12px;flex-wrap:wrap}
+.cipp-kode-sm{font-size:20px;font-weight:900}
+.cipp-nama-sm{font-size:13px;font-weight:600;color:#2d3748}
+.cipp-avg-sm{font-size:13px;color:#4a5568;margin-left:auto}
+.cipp-std-sm{font-size:12px;color:#a0aec0}
+.cipp-n-sm{font-size:12px;color:#a0aec0}
+.matrix-wrap{display:flex;flex-direction:column;gap:16px}
+.matrix-info{font-size:14px;color:#2d3748;padding:10px 14px;background:#f7fafc;border-radius:8px}
+.matrix-scroll{overflow-x:auto}
+.matrix-table{border-collapse:collapse;min-width:400px}
+.matrix-th-cpmk{padding:10px 14px;background:#1a365d;color:#fff;font-size:12px;text-align:left;white-space:nowrap;min-width:160px}
+.matrix-th-cpl{padding:10px 14px;background:#1a365d;color:#fff;font-size:12px;text-align:center;min-width:80px}
+.matrix-td-label{padding:8px 14px;background:#f7fafc;font-size:12px;white-space:nowrap;border-bottom:1px solid #e2e8f0}
+.bobot-badge{margin-left:6px;background:#e2e8f0;color:#4a5568;border-radius:4px;padding:1px 5px;font-size:10px}
+.matrix-cell{padding:8px;text-align:center;font-size:14px;border-bottom:1px solid #f0f4f8;border-left:1px solid #f0f4f8}
+.cell-mapped{background:#c6f6d5;color:#276749;font-weight:700}
+.cell-empty{background:#fff;color:#e2e8f0}
+.cell-dash{color:#e2e8f0}
+.matrix-legend{display:flex;align-items:center;gap:8px;font-size:12px;color:#718096}
 @media(max-width:768px){
   .cipp-grid{grid-template-columns:repeat(2,1fr)}
   .kpi-row{grid-template-columns:repeat(2,1fr)}

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional
 from pydantic import BaseModel
+import csv
+import io
 from app.database import get_db
 from app.dependencies import require_admin, require_superadmin_or_admin
 from app.models.auth import User
@@ -292,3 +294,84 @@ async def toggle_open_question(
     oq.is_active = not oq.is_active
     await db.commit()
     return {"id": oq.id, "kode": oq.kode, "is_active": oq.is_active}
+
+
+# ── Import Item via CSV (UC-15) ───────────────────────────────────────────────
+
+@router.post("/items/import")
+async def import_items(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_superadmin_or_admin),
+):
+    """
+    Import item instrumen dari file CSV.
+    Kolom wajib: kode, sub_dimension_id, nomor_urut, text_id_dosen, text_id_mahasiswa
+    Kolom opsional: text_zh_dosen, text_zh_mahasiswa, indikator, answer_type, scale_min, scale_max, is_required
+    """
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(400, "Hanya file CSV yang didukung (.csv)")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(400, "File harus berformat UTF-8")
+
+    reader = csv.DictReader(io.StringIO(text))
+    required_cols = {"kode", "sub_dimension_id", "nomor_urut", "text_id_dosen", "text_id_mahasiswa"}
+    if not reader.fieldnames or not required_cols.issubset(set(reader.fieldnames)):
+        raise HTTPException(400, f"Kolom wajib tidak lengkap. Diperlukan: {', '.join(required_cols)}")
+
+    imported, skipped, errors = 0, 0, []
+
+    for i, row in enumerate(reader, start=2):
+        kode = row.get("kode", "").strip()
+        if not kode:
+            errors.append(f"Baris {i}: kolom 'kode' kosong")
+            skipped += 1
+            continue
+
+        # Cek duplikat kode
+        existing = (await db.execute(
+            select(InstrumentItem).where(InstrumentItem.kode == kode)
+        )).scalar_one_or_none()
+        if existing:
+            errors.append(f"Baris {i}: kode '{kode}' sudah ada — dilewati")
+            skipped += 1
+            continue
+
+        try:
+            sub_dim_id = int(row["sub_dimension_id"])
+            nomor_urut = int(row["nomor_urut"])
+        except (ValueError, KeyError):
+            errors.append(f"Baris {i}: sub_dimension_id / nomor_urut harus berupa angka")
+            skipped += 1
+            continue
+
+        # Validasi sub_dimension ada
+        sd = await db.get(CippSubDimension, sub_dim_id)
+        if not sd:
+            errors.append(f"Baris {i}: sub_dimension_id {sub_dim_id} tidak ditemukan")
+            skipped += 1
+            continue
+
+        item = InstrumentItem(
+            kode=kode,
+            sub_dimension_id=sub_dim_id,
+            nomor_urut=nomor_urut,
+            text_id_dosen=row.get("text_id_dosen", "").strip(),
+            text_id_mahasiswa=row.get("text_id_mahasiswa", "").strip(),
+            text_zh_dosen=row.get("text_zh_dosen", "").strip(),
+            text_zh_mahasiswa=row.get("text_zh_mahasiswa", "").strip(),
+            indikator=row.get("indikator", "").strip() or None,
+            answer_type=row.get("answer_type", "likert").strip() or "likert",
+            scale_min=int(row.get("scale_min", 1) or 1),
+            scale_max=int(row.get("scale_max", 5) or 5),
+            is_required=str(row.get("is_required", "true")).lower() in ("true", "1", "ya", "yes"),
+        )
+        db.add(item)
+        imported += 1
+
+    await db.commit()
+    return {"imported": imported, "skipped": skipped, "errors": errors}

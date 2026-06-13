@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Optional, Sequence
 from app.database import get_db
 from app.dependencies import require_admin
 from app.models.auth import User
 from app.models.response import Response, ResponseItem
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem
-from app.models.academic import Course, Program
+from app.models.academic import Course, Program, Cpl, Cpmk, CpmkCplMapping
 
 router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 
@@ -161,3 +161,187 @@ async def distribution(
         })
 
     return {"dimensions": result}
+
+
+# ══════════════ UC-17a: SKOR CIPP PER DIMENSI + SUB-DIMENSI ══════════════════
+
+@router.get("/cipp-scores")
+async def cipp_scores(
+    course_id: Optional[int] = None,
+    role: Optional[str] = Query(None, pattern="^(dosen|mahasiswa)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Skor rata-rata CIPP per dimensi beserta breakdown per sub-dimensi."""
+    ids_dosen = (await db.execute(
+        _base_response_ids_query("dosen", course_id, current_user)
+    )).scalars().all()
+    ids_mhs = (await db.execute(
+        _base_response_ids_query("mahasiswa", course_id, current_user)
+    )).scalars().all()
+
+    if role == "dosen":
+        active_ids = ids_dosen
+    elif role == "mahasiswa":
+        active_ids = ids_mhs
+    else:
+        active_ids = list(ids_dosen) + list(ids_mhs)
+
+    dims = (await db.execute(
+        select(CippDimension).order_by(CippDimension.urutan)
+    )).scalars().all()
+
+    result = []
+    for dim in dims:
+        subdims = (await db.execute(
+            select(CippSubDimension)
+            .where(CippSubDimension.dimension_id == dim.id)
+            .order_by(CippSubDimension.urutan)
+        )).scalars().all()
+
+        subdim_out = []
+        dim_scores: list[float] = []
+
+        for sd in subdims:
+            item_ids = (await db.execute(
+                select(InstrumentItem.id).where(
+                    InstrumentItem.sub_dimension_id == sd.id,
+                    InstrumentItem.is_active == True,
+                )
+            )).scalars().all()
+
+            if item_ids and active_ids:
+                scores = (await db.execute(
+                    select(ResponseItem.skor).where(
+                        ResponseItem.response_id.in_(active_ids),
+                        ResponseItem.item_id.in_(item_ids),
+                    )
+                )).scalars().all()
+                n = len(scores)
+                avg = round(sum(scores) / n, 2) if n else None
+                std = round((sum((s - (avg or 0)) ** 2 for s in scores) / n) ** 0.5, 2) if n > 1 else 0.0
+            else:
+                scores, n, avg, std = [], 0, None, 0.0
+
+            if scores:
+                dim_scores.extend(scores)
+
+            subdim_out.append({
+                "kode": sd.kode,
+                "nama": sd.nama_id,
+                "rata_rata": avg,
+                "std_dev": std,
+                "n": n,
+            })
+
+        n_dim = len(dim_scores)
+        avg_dim = round(sum(dim_scores) / n_dim, 2) if n_dim else None
+        std_dim = round((sum((s - (avg_dim or 0)) ** 2 for s in dim_scores) / n_dim) ** 0.5, 2) if n_dim > 1 else 0.0
+
+        result.append({
+            "kode": dim.kode,
+            "nama": dim.nama_id,
+            "warna_hex": dim.warna_hex,
+            "rata_rata": avg_dim,
+            "std_dev": std_dim,
+            "n": n_dim,
+            "sub_dimensions": subdim_out,
+        })
+
+    return {
+        "total_responses": len(active_ids),
+        "total_dosen": len(ids_dosen),
+        "total_mahasiswa": len(ids_mhs),
+        "dimensions": result,
+    }
+
+
+# ══════════════ UC-17c: MATRIKS CPL-CPMK ═════════════════════════════════════
+
+@router.get("/cpl-cpmk-matrix")
+async def cpl_cpmk_matrix(
+    course_id: int = Query(..., description="ID mata kuliah (wajib)"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Matriks pemetaan CPL-CPMK untuk satu mata kuliah, dilengkapi rata-rata skor."""
+    course = await db.get(Course, course_id)
+    if not course:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Mata kuliah tidak ditemukan")
+
+    # CPL terkait mata kuliah (via CourseCplMapping)
+    from app.models.academic import CourseCplMapping
+    cpl_ids = (await db.execute(
+        select(CourseCplMapping.cpl_id).where(CourseCplMapping.course_id == course_id)
+    )).scalars().all()
+
+    cpls = []
+    if cpl_ids:
+        cpls = (await db.execute(
+            select(Cpl).where(Cpl.id.in_(cpl_ids)).order_by(Cpl.kode_cpl)
+        )).scalars().all()
+
+    # CPMK mata kuliah
+    cpmks = (await db.execute(
+        select(Cpmk).where(Cpmk.course_id == course_id, Cpmk.is_active == True).order_by(Cpmk.kode_cpmk)
+    )).scalars().all()
+
+    cpmk_ids = [c.id for c in cpmks]
+
+    # Mapping yang ada
+    mappings = set()
+    if cpmk_ids and cpl_ids:
+        rows = (await db.execute(
+            select(CpmkCplMapping.cpmk_id, CpmkCplMapping.cpl_id).where(
+                CpmkCplMapping.cpmk_id.in_(cpmk_ids),
+                CpmkCplMapping.cpl_id.in_(cpl_ids),
+            )
+        )).all()
+        mappings = {(r.cpmk_id, r.cpl_id) for r in rows}
+
+    # Skor rata-rata per CPMK (dari rubrik assessment → respons)
+    # Gunakan skor dari ResponseItem berdasarkan item instrumen yang terkait kode CPMK
+    # Simplified: avg skor semua respons di MK ini
+    resp_ids = (await db.execute(
+        select(Response.id).where(Response.course_id == course_id, Response.is_complete == True)
+    )).scalars().all()
+
+    cpmk_avg: dict[int, tuple[float | None, int]] = {}
+    for cpmk in cpmks:
+        # Cari rubrik terkait CPMK ini untuk mendapatkan rata-rata skor rubrik
+        from app.models.assessment import AssessmentRubric, AssessmentScheme
+        rubric_rows = (await db.execute(
+            select(AssessmentRubric.skor_min, AssessmentRubric.skor_max)
+            .join(AssessmentScheme, AssessmentRubric.assessment_scheme_id == AssessmentScheme.id)
+            .where(
+                AssessmentScheme.course_id == course_id,
+                AssessmentRubric.cpmk_id == cpmk.id,
+            )
+        )).all()
+
+        if rubric_rows:
+            midpoints = [(r.skor_min + r.skor_max) / 2 for r in rubric_rows]
+            avg = round(sum(midpoints) / len(midpoints), 2)
+            cpmk_avg[cpmk.id] = (avg, len(rubric_rows))
+        else:
+            cpmk_avg[cpmk.id] = (None, 0)
+
+    matrix = [
+        {
+            "cpmk_id": cpmk.id,
+            "cpl_id": cpl.id,
+            "has_mapping": (cpmk.id, cpl.id) in mappings,
+            "avg_score": cpmk_avg.get(cpmk.id, (None, 0))[0],
+            "n": cpmk_avg.get(cpmk.id, (None, 0))[1],
+        }
+        for cpmk in cpmks
+        for cpl in cpls
+    ]
+
+    return {
+        "course": {"id": course.id, "nama": course.nama_id, "kode_mk": course.kode_mk},
+        "cpls": [{"id": c.id, "kode": c.kode_cpl, "deskripsi": c.deskripsi_id} for c in cpls],
+        "cpmks": [{"id": c.id, "kode": c.kode_cpmk, "deskripsi": c.deskripsi_id, "bobot": float(c.bobot_persen)} for c in cpmks],
+        "matrix": matrix,
+    }

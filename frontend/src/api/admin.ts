@@ -57,6 +57,8 @@ export const toggleUserActive = (id: string) => api.patch(`/admin/users/${id}/to
 // Analytics
 export const getAnalyticsComparison = (params?: object) => api.get('/admin/analytics/comparison', { params })
 export const getAnalyticsDistribution = (params?: object) => api.get('/admin/analytics/distribution', { params })
+export const getAnalyticsCippScores = (params?: object) => api.get('/admin/analytics/cipp-scores', { params })
+export const getAnalyticsCplCpmkMatrix = (courseId: number) => api.get('/admin/analytics/cpl-cpmk-matrix', { params: { course_id: courseId } })
 
 // Instruments
 export const getInstrumentDimensions = () => api.get('/admin/instruments/dimensions')
@@ -65,6 +67,11 @@ export const createInstrumentItem = (data: object) => api.post('/admin/instrumen
 export const updateInstrumentItem = (id: number, data: object) => api.put(`/admin/instruments/items/${id}`, data)
 export const toggleInstrumentItem = (id: number) => api.patch(`/admin/instruments/items/${id}/toggle`)
 export const deleteInstrumentItem = (id: number) => api.delete(`/admin/instruments/items/${id}`)
+export const importInstrumentItems = (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post('/admin/instruments/items/import', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
 export const getOpenQuestions = () => api.get('/admin/instruments/open-questions')
 export const createOpenQuestion = (data: object) => api.post('/admin/instruments/open-questions', data)
 export const updateOpenQuestion = (id: number, data: object) => api.put(`/admin/instruments/open-questions/${id}`, data)
