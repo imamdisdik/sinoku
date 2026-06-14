@@ -304,6 +304,19 @@ async def create_mbkm(
     return mbkm
 
 
+@router.get("/mbkm/{mbkm_id}", response_model=MbkmOut)
+async def get_mbkm(
+    mbkm_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    mbkm = await db.get(MbkmIntegration, mbkm_id)
+    if not mbkm:
+        raise HTTPException(404, "Data MBKM tidak ditemukan")
+    await _check_course_access(mbkm.course_id, current_user, db)
+    return mbkm
+
+
 @router.put("/mbkm/{mbkm_id}", response_model=MbkmOut)
 async def update_mbkm(
     mbkm_id: int,
