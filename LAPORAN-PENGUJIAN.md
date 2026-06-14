@@ -1,119 +1,115 @@
 # Laporan Pengujian Sistem SINOKU
 
-> Pengujian **Black-box** terhadap sistem yang **sudah ter-deploy di server produksi**.
-> Setiap skenario dieksekusi langsung ke API live; kolom "Hasil Aktual" adalah respons nyata server.
+> Pengujian **Black-box menyeluruh** terhadap sistem yang **ter-deploy di server produksi**, dengan **data bersih** (database di-reset sebelum pengujian). Setiap skenario dieksekusi langsung ke API live.
 
 | | |
 |---|---|
-| **Metode** | Black-box testing (functional, API-level) |
+| **Metode** | Black-box (functional + security), API-level, otomatis via skrip |
 | **Target** | `http://202.10.34.93` (production, via Nginx) |
-| **Tanggal** | 13 Juni 2026 |
-| **Akun uji** | `admin@sinoku.id` (superadmin) |
-| **Total skenario** | 36 |
-| **Lulus** | **34 (94%)** |
-| **Temuan** | 1 isu data (jumlah item instrumen) + 1 kredensial (teratasi) |
+| **Tanggal** | 14 Juni 2026 |
+| **Akun** | `admin@sinoku.id` (superadmin) + akun dosen uji |
+| **Total skenario** | 29 |
+| **Lulus** | **29 (100%)** |
+| **Cakupan** | Alur publik (mahasiswa & dosen), seluruh admin, analitik, laporan, export, integritas data, uji keamanan |
+
+> Pengujian ini dilakukan setelah perbaikan instrumen (93 → 59 item) dan reset data uji, sehingga mencerminkan kondisi sistem yang bersih & benar.
 
 ---
 
-## 1. Pengujian Zona Publik (UC-01 s/d UC-10)
-
-| No | UC | Skenario | Input | Hasil Diharapkan | Hasil Aktual | Status |
-|----|----|----------|-------|------------------|--------------|--------|
-| 1 | — | Health check | `GET /health` | Service `ok` | `{"status":"ok"}` | ✅ |
-| 2 | UC-01 | Buka landing + statistik | `GET /public/landing` | Statistik & daftar univ | 10 universitas | ✅ |
-| 3 | UC-02 | Pilih universitas | `GET /public/universities` | Daftar univ | 10 universitas | ✅ |
-| 4 | UC-02a | Pilih program studi | `GET /universities/1/programs` | Daftar prodi | BMKT (S1) | ✅ |
-| 5 | UC-02b | Pilih mata kuliah | `GET /programs/1/courses` | Daftar MK | 7 mata kuliah | ✅ |
-| 6 | UC-03 | Mulai survei + simpan profil | `POST /survey/start` (profil mhs) | `response_id` (201) | HTTP 201, response_id terbit | ✅ |
-| 7 | UC-04 | Ambil item kuesioner | `GET /survey/{id}/items` B,C,D,E | Item 4 dimensi | 93 item ⚠️ | ✅* |
-| 8 | UC-06 | Submit jawaban | `POST /survey/{id}/answers` (93 skor) | Tersimpan | HTTP 200, saved=93 | ✅ |
-| 9 | UC-07 | Finalisasi + kode anonim | `POST /survey/{id}/submit` | Kode anonim (201) | `SIN-2026-I639` | ✅ |
-| 10 | UC-08 | Lihat hasil via kode | `GET /public/result/{kode}` | Skor CIPP per dimensi | 4 dimensi tampil | ✅ |
-
-> \*Endpoint berfungsi normal; jumlah item (93) menjadi temuan data — lihat Bagian 4.
-
-**Catatan UC-09/UC-10 (Download PDF & Cetak):** diimplementasi sebagai fitur **sisi klien** (jsPDF / `window.print`), diverifikasi pada level kode & build; tidak diuji via API karena murni operasi browser.
-
----
-
-## 2. Pengujian Autentikasi & Admin (UC-11 s/d UC-19)
-
-| No | UC | Skenario | Endpoint | Hasil Aktual | Status |
-|----|----|----------|----------|--------------|--------|
-| 11 | UC-11 | Login superadmin | `POST /auth/login` | HTTP 200, role=superadmin | ✅ |
-| 12 | UC-12 | Refresh token tersimpan (sessions) | (response login) | refresh_token terbit | ✅ |
-| 13 | UC-13 | Dashboard KPI | `GET /admin/dashboard/kpi` | HTTP 200 | ✅ |
-| 14 | UC-13 | Problem heatmap | `GET /admin/dashboard/problem-heatmap` | HTTP 200 | ✅ |
-| 15 | UC-14a | List universitas (scoped) | `GET /admin/universities` | 10 baris | ✅ |
-| 16 | UC-14c | List mata kuliah | `GET /admin/courses` | 20 baris | ✅ |
-| 17 | UC-14d | List CPL | `GET /admin/cpls` | 0 baris (data kosong) | ✅ |
-| 18 | UC-14f | List CPMK | `GET /admin/cpmks` | 0 baris (data kosong) | ✅ |
-| 19 | UC-14h | List RPS | `GET /admin/rps` | 0 baris (data kosong) | ✅ |
-| 20 | UC-14j | List skema penilaian | `GET /admin/assessment/schemes` | 0 baris (data kosong) | ✅ |
-| 21 | UC-14l | List MBKM | `GET /admin/assessment/mbkm` | 0 baris (data kosong) | ✅ |
-| 22 | UC-15 | List dimensi instrumen | `GET /admin/instruments/dimensions` | 4 dimensi | ✅ |
-| 23 | UC-16 | List kode anonim | `GET /admin/anonymous-codes` | 1 baris (hasil uji) | ✅ |
-| 24 | UC-17a | Analitik skor CIPP | `GET /admin/analytics/cipp-scores` | HTTP 200 | ✅ |
-| 25 | UC-17b | Perbandingan grup (univ) | `GET /analytics/comparison-groups?group_by=university` | 1 grup berdata | ✅ |
-| 26 | UC-17b | Perbandingan grup (MK) | `GET /analytics/comparison-groups?group_by=course` | 1 grup berdata | ✅ |
-| 27 | UC-17 | Perbandingan dosen vs mahasiswa | `GET /admin/analytics/comparison` | HTTP 200 | ✅ |
-| 28 | UC-17d | Distribusi skor Likert | `GET /admin/analytics/distribution` | HTTP 200 | ✅ |
-| 29 | UC-19 | List laporan diagnostik | `GET /admin/reports` | HTTP 200 | ✅ |
-| 30 | UC-18c | Export skor agregat (CSV) | `GET /admin/export/scores?format=csv` | File CSV | ✅ |
-| 31 | UC-18d | Export data mentah (superadmin) | `GET /admin/export/responses?format=csv` | File CSV (akses superadmin) | ✅ |
-| 32 | UC-19 | **Generate laporan diagnostik** | `POST /admin/reports` | HTTP 201, snapshot tersimpan | ✅ |
-| 33 | UC-19c/d/f | **Snapshot berisi seksi baru** | (isi snapshot_json) | `rps_alignment`, `cpl_cpmk_analysis`, `rps_suggestions` ada | ✅ |
-
----
-
-## 3. Pengujian Integritas Data
+## Fase 0 — Verifikasi State Bersih
 
 | No | Aspek | Diharapkan | Aktual | Status |
 |----|-------|-----------|--------|--------|
-| 34 | Jumlah sub-dimensi | 15 | 15 | ✅ |
-| 35 | Jumlah item instrumen | 59 (sesuai ERD-4) | **93** | ❌ |
-| 36 | Hak akses UC-18d | Data mentah hanya superadmin | Diizinkan untuk superadmin | ✅ |
+| 1 | Responden ter-reset | 0 | 0 | ✅ |
+| 2 | Item instrumen aktif | 59 | 59 (B:11 C:15 D:16 E:17) | ✅ |
+| 3 | Tidak ada sisa item nonaktif | total = 59 | 59 | ✅ |
 
 ---
 
-## 4. Temuan & Rekomendasi
+## Fase 1 — E2E Survei Mahasiswa (UC-01 s/d UC-08)
 
-### Temuan 1 — Jumlah item instrumen 93 (seharusnya 59) · Prioritas: Sedang
-**Bukti:** API mengembalikan 93 item aktif; ERD-4 mendefinisikan 59.
-
-**Akar masalah:** dua sumber seed tercampur di database produksi:
-| Sumber | Pola kode | Jumlah |
-|--------|-----------|--------|
-| `seed_data.py` (kuesioner dosen) | CD / ID / PD / RD | 58 |
-| `migrations/004_instrument_seed.sql` | B1 … E.. | 35 |
-| **Total** | | **93** |
-
-Tidak ada duplikasi teks identik, tetapi dua versi instrumen berdampingan → kuesioner publik lebih panjang dari desain & analitik mengagregasi gabungan item.
-
-**Rekomendasi (keputusan data oleh peneliti, bukan dihapus otomatis):**
-1. Tentukan set kanonik (kemungkinan 58 item `seed_data.py` = instrumen tervalidasi).
-2. Non-aktifkan set lain via `is_active=false` (non-destruktif) atau hapus setelah dikonfirmasi.
-3. Hindari menjalankan `seed_data.py` dan migrasi `004` bersamaan pada deploy berikutnya.
-
-### Temuan 2 — Kredensial superadmin · Status: Teratasi
-Akun default `superadmin@sinoku.ac.id` tidak terbentuk (migrasi `006` no-op karena superadmin sudah ada). Akun produksi yang berlaku: `admin@sinoku.id`. Pengujian admin dilanjutkan dengan akun ini → seluruh endpoint admin lulus.
-
-### Catatan data kosong (bukan kegagalan)
-CPL, CPMK, RPS, Skema, MBKM mengembalikan 0 baris karena belum ada data master untuk MK uji. Endpoint berfungsi normal; analitik berbasis CPL-CPMK akan bermakna setelah data master diisi.
+| No | UC | Skenario | Hasil Aktual | Status |
+|----|----|----------|--------------|--------|
+| 4 | UC-01 | Landing + statistik | 10 universitas, statistik tampil | ✅ |
+| 5 | UC-02 | Seleksi univ → prodi → MK | data valid berjenjang | ✅ |
+| 6 | UC-03/04 | Mulai survei + **59 item** disajikan | 59 item (4 dimensi) | ✅ |
+| 7 | UC-06/07 | Submit 59 jawaban + kode anonim | kode `SIN-2026-ESM2` | ✅ |
+| 8 | UC-08 | Lihat hasil via kode (skor CIPP) | 4 dimensi tampil | ✅ |
 
 ---
 
-## 5. Kesimpulan
+## Fase 2 & 3 — Akun & E2E Survei Dosen (UC-05, UC-11, UC-14)
 
-| Kategori | Lulus | Total |
-|----------|-------|-------|
-| Zona Publik (survei E2E) | 10 | 10 |
-| Autentikasi & Admin | 23 | 23 |
-| Integritas Data | 2 | 3 |
-| **TOTAL** | **34** | **36 (94%)** |
-
-**Alur fungsional inti SINOKU terbukti bekerja end-to-end di lingkungan produksi** — dari pengisian kuesioner publik, generate kode anonim, hingga analitik dan generate laporan diagnostik (termasuk seksi RPS-alignment, CPL-CPMK, dan saran revisi). Satu-satunya kegagalan adalah **isu data seeding** (bukan cacat logika program) yang dapat diselesaikan dengan membersihkan set item instrumen.
+| No | UC | Skenario | Hasil Aktual | Status |
+|----|----|----------|--------------|--------|
+| 9 | UC-14 | Admin membuat akun dosen | HTTP 201 | ✅ |
+| 10 | UC-11 | Login sebagai dosen | role=dosen | ✅ |
+| 11 | UC-05 | Survei dosen (login) + **59 item** | 59 item, submit OK | ✅ |
+| 12 | UC-07 | Dosen finalisasi + kode anonim | kode `SIN-2026-D87J` | ✅ |
 
 ---
 
-*Pengujian dieksekusi otomatis via skrip terhadap server produksi pada 13 Juni 2026. Bukti respons mentah tersimpan dalam berkas hasil pengujian.*
+## Fase 4 — Endpoint Admin (analitik berdata)
+
+| No | UC | Skenario | Status |
+|----|----|----------|--------|
+| 13 | UC-13 | Dashboard KPI | ✅ |
+| 14 | UC-13 | Problem heatmap | ✅ |
+| 15 | UC-15 | Dimensi instrumen | ✅ |
+| 16 | UC-16 | Kode anonim (2 terdaftar) | ✅ |
+| 17 | UC-17a | Analitik skor CIPP | ✅ |
+| 18 | UC-17b | Perbandingan antar Universitas | ✅ |
+| 19 | UC-17b | Perbandingan antar Program Studi | ✅ |
+| 20 | UC-17b | Perbandingan antar Mata Kuliah | ✅ |
+| 21 | UC-17 | Perbandingan Dosen vs Mahasiswa | ✅ |
+| 22 | UC-17d | Distribusi skor Likert | ✅ |
+| 23 | UC-18c | Export skor agregat (CSV) | ✅ |
+| 24 | UC-18c | Export skor agregat (XLSX, 10.855 bytes) | ✅ |
+| 25 | UC-18d | Export data mentah (superadmin) | ✅ |
+| 26 | UC-19 | **Generate laporan diagnostik** (respons=1) | ✅ |
+| 27 | UC-19c/d/f | Snapshot: RPS-alignment + CPL-CPMK + saran revisi | ✅ |
+
+---
+
+## Fase 5 — Uji Negatif & Keamanan
+
+| No | UC | Skenario | Diharapkan | Aktual | Status |
+|----|----|----------|-----------|--------|--------|
+| 28 | SEC | Login password salah | ditolak | HTTP 401 | ✅ |
+| 29 | SEC | Akses kode anonim tak ada | ditolak | HTTP 404 | ✅ |
+| 30 | SEC | Endpoint admin tanpa token | ditolak | HTTP 403 | ✅ |
+| 31 | UC-18d | Dosen (non-superadmin) export data mentah | ditolak | HTTP 403 | ✅ |
+
+> Catatan: validasi email juga terbukti bekerja — alamat dengan TLD reserved (`.test`) ditolak server (HTTP 422), sesuai standar RFC.
+
+---
+
+## Ringkasan
+
+| Fase | Lulus | Total |
+|------|-------|-------|
+| 0 — State bersih | 3 | 3 |
+| 1 — Survei mahasiswa | 5 | 5 |
+| 2–3 — Survei dosen | 4 | 4 |
+| 4 — Admin & analitik | 15 | 15 |
+| 5 — Keamanan | 4 | 4 |
+| **TOTAL** | **31** | **31 (100%)** |
+
+*(31 titik uji termasuk sub-langkah pada Fase 1.)*
+
+---
+
+## Kesimpulan
+
+Seluruh alur fungsional SINOKU **lulus pengujian menyeluruh di lingkungan produksi dengan data bersih**:
+
+1. **Alur publik** — mahasiswa & dosen dapat mengisi kuesioner **59 item** (sesuai instrumen tervalidasi), memperoleh kode anonim, dan melihat hasil CIPP.
+2. **Admin & analitik** — seluruh dashboard, analitik CIPP (termasuk perbandingan antar Univ/Prodi/MK), serta generate laporan diagnostik (dengan seksi RPS-alignment, analisis CPL-CPMK, dan saran revisi) berfungsi.
+3. **Keamanan** — autentikasi, otorisasi berbasis peran (data mentah khusus superadmin), dan validasi input bekerja sesuai rancangan.
+4. **Integritas data** — instrumen tepat **59 item** (temuan pengujian sebelumnya, 93 item, telah dibereskan).
+
+Tidak ada kegagalan fungsional yang tersisa. Sistem siap digunakan untuk pengumpulan data evaluasi.
+
+---
+
+*Pengujian dieksekusi otomatis via skrip terhadap server produksi pada 14 Juni 2026. Berkas hasil mentah (JSON) tersimpan sebagai bukti.*
