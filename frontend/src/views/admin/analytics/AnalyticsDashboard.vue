@@ -7,6 +7,14 @@
           <option :value="null">Semua Mata Kuliah</option>
           <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode }} — {{ c.nama }}</option>
         </select>
+        <select v-model="filters.role" @change="fetchAll" class="filter-select" title="Filter peran responden">
+          <option value="">Semua Peran</option>
+          <option value="dosen">Dosen</option>
+          <option value="mahasiswa">Mahasiswa</option>
+        </select>
+        <input type="date" v-model="filters.periode_start" @change="fetchAll" class="filter-select" title="Periode mulai" />
+        <input type="date" v-model="filters.periode_end" @change="fetchAll" class="filter-select" title="Periode akhir" />
+        <button v-if="filters.course_id || filters.role || filters.periode_start || filters.periode_end" @click="resetFilters" class="filter-reset" title="Reset filter">✕ Reset</button>
         <select v-model="activeTab" class="filter-select">
           <option value="overview">Ringkasan CIPP</option>
           <option value="cipp-scores">Skor Sub-Dimensi</option>
@@ -84,11 +92,7 @@
       <div v-if="activeTab === 'cipp-scores'" class="tab-content">
         <div class="page-header" style="margin-bottom:16px">
           <div class="section-title" style="margin:0">Skor CIPP per Sub-Dimensi</div>
-          <select v-model="cippScoresRole" @change="fetchCippScores" class="filter-select" style="font-size:12px">
-            <option value="">Semua (Dosen + Mahasiswa)</option>
-            <option value="dosen">Dosen</option>
-            <option value="mahasiswa">Mahasiswa</option>
-          </select>
+          <span class="filter-hint">Gunakan filter peran &amp; periode di atas</span>
         </div>
         <div v-if="loadingCippScores" class="empty-state">Memuat data...</div>
         <div v-else-if="!cippScoresData.dimensions?.length" class="empty-state">Belum ada data</div>
@@ -364,8 +368,25 @@ const loadingCippScores = ref(false)
 const loadingMatrix = ref(false)
 const activeTab = ref('overview')
 const threshold = ref(3.0)
-const filters = ref({ course_id: null as number | null })
-const cippScoresRole = ref('')
+const filters = ref({
+  course_id: null as number | null,
+  role: '' as '' | 'dosen' | 'mahasiswa',
+  periode_start: '' as string,
+  periode_end: '' as string,
+})
+// Bangun query param global (UC-17f): hanya sertakan yang terisi
+function globalParams(extra: Record<string, any> = {}) {
+  const p: Record<string, any> = { ...extra }
+  if (filters.value.course_id) p.course_id = filters.value.course_id
+  if (filters.value.role) p.role = filters.value.role
+  if (filters.value.periode_start) p.periode_start = filters.value.periode_start
+  if (filters.value.periode_end) p.periode_end = filters.value.periode_end
+  return p
+}
+function resetFilters() {
+  filters.value = { course_id: null, role: '', periode_start: '', periode_end: '' }
+  fetchAll()
+}
 const matrixCourseId = ref<number | null>(null)
 const kpi = ref<any>({ cipp_by_dimension: [], response_trend: [] })
 const heatmapItems = ref<any[]>([])
@@ -439,23 +460,17 @@ const radarDots = computed(() => {
 const radarPoints = computed(() => radarDots.value.map((p: any) => `${p.x},${p.y}`).join(' '))
 
 async function fetchKpi() {
-  const params: any = {}
-  if (filters.value.course_id) params.course_id = filters.value.course_id
-  const res = await getDashboardKpi(params)
+  const res = await getDashboardKpi(globalParams())
   kpi.value = res.data
 }
 async function fetchHeatmap() {
-  const params: any = { threshold: threshold.value }
-  if (filters.value.course_id) params.course_id = filters.value.course_id
-  const res = await getProblemHeatmap(params)
+  const res = await getProblemHeatmap(globalParams({ threshold: threshold.value }))
   heatmapItems.value = res.data.items
 }
 async function fetchComparison() {
   loadingComparison.value = true
   try {
-    const params: any = {}
-    if (filters.value.course_id) params.course_id = filters.value.course_id
-    const res = await getAnalyticsComparison(params)
+    const res = await getAnalyticsComparison(globalParams())
     comparisonData.value = res.data
   } catch { comparisonData.value = { total_dosen: 0, total_mahasiswa: 0, dimensions: [] } }
   finally { loadingComparison.value = false }
@@ -463,9 +478,7 @@ async function fetchComparison() {
 async function fetchDistribution() {
   loadingDistribution.value = true
   try {
-    const params: any = {}
-    if (filters.value.course_id) params.course_id = filters.value.course_id
-    const res = await getAnalyticsDistribution(params)
+    const res = await getAnalyticsDistribution(globalParams())
     distributionData.value = res.data
   } catch { distributionData.value = { dimensions: [] } }
   finally { loadingDistribution.value = false }
@@ -490,10 +503,7 @@ async function fetchComparisonGroups() {
 async function fetchCippScores() {
   loadingCippScores.value = true
   try {
-    const params: any = {}
-    if (filters.value.course_id) params.course_id = filters.value.course_id
-    if (cippScoresRole.value) params.role = cippScoresRole.value
-    const res = await getAnalyticsCippScores(params)
+    const res = await getAnalyticsCippScores(globalParams())
     cippScoresData.value = res.data
   } catch { cippScoresData.value = { total_responses: 0, total_dosen: 0, total_mahasiswa: 0, dimensions: [] } }
   finally { loadingCippScores.value = false }
@@ -528,7 +538,10 @@ onMounted(async () => {
 <style scoped>
 .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px}
 .page-title{font-size:22px;font-weight:700;color:#1a365d}
-.header-filters{display:flex;gap:10px;flex-wrap:wrap}
+.header-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter-reset{padding:8px 12px;border:1px solid #fc8181;background:#fff5f5;color:#c53030;border-radius:6px;font-size:12px;cursor:pointer}
+.filter-reset:hover{background:#fed7d7}
+.filter-hint{font-size:11px;color:#a0aec0;font-style:italic}
 .filter-select{padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;background:#fff}
 .loading-state{text-align:center;color:#718096;padding:60px;background:#fff;border-radius:10px}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}

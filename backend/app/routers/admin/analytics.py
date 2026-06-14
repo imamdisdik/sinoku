@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, Sequence
+from datetime import date
 from app.database import get_db
 from app.dependencies import require_admin
 from app.models.auth import User
@@ -12,13 +13,24 @@ from app.models.academic import Course, Program, Cpl, Cpmk, CpmkCplMapping
 router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 
 
-def _base_response_ids_query(role: str, course_id: Optional[int], current_user: User):
+def _base_response_ids_query(
+    role: str,
+    course_id: Optional[int],
+    current_user: User,
+    periode_start: Optional[date] = None,
+    periode_end: Optional[date] = None,
+):
     q = select(Response.id).where(
         Response.is_complete == True,
         Response.role == role,
     )
     if course_id:
         q = q.where(Response.course_id == course_id)
+    # UC-17f: filter periode (inklusif, berdasarkan tanggal submit)
+    if periode_start:
+        q = q.where(func.date(Response.submitted_at) >= periode_start)
+    if periode_end:
+        q = q.where(func.date(Response.submitted_at) <= periode_end)
     if current_user.role in ("admin", "dosen") and current_user.university_id:
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
@@ -85,15 +97,17 @@ async def _get_item_ids_for_dim(db: AsyncSession, dim_id: int) -> list[int]:
 @router.get("/comparison")
 async def comparison(
     course_id: Optional[int] = None,
+    periode_start: Optional[date] = None,
+    periode_end: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Skor rata-rata per dimensi CIPP, dipisah antara dosen dan mahasiswa."""
     ids_dosen = (await db.execute(
-        _base_response_ids_query("dosen", course_id, current_user)
+        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end)
     )).scalars().all()
     ids_mhs = (await db.execute(
-        _base_response_ids_query("mahasiswa", course_id, current_user)
+        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end)
     )).scalars().all()
 
     dims = (await db.execute(
@@ -126,15 +140,17 @@ async def comparison(
 async def distribution(
     course_id: Optional[int] = None,
     dimensi: Optional[str] = None,
+    periode_start: Optional[date] = None,
+    periode_end: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Distribusi frekuensi skor Likert 1–5 per dimensi, dipisah dosen vs mahasiswa."""
     ids_dosen = (await db.execute(
-        _base_response_ids_query("dosen", course_id, current_user)
+        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end)
     )).scalars().all()
     ids_mhs = (await db.execute(
-        _base_response_ids_query("mahasiswa", course_id, current_user)
+        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end)
     )).scalars().all()
 
     if dimensi:
@@ -243,15 +259,17 @@ async def comparison_groups(
 async def cipp_scores(
     course_id: Optional[int] = None,
     role: Optional[str] = Query(None, pattern="^(dosen|mahasiswa)$"),
+    periode_start: Optional[date] = None,
+    periode_end: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Skor rata-rata CIPP per dimensi beserta breakdown per sub-dimensi."""
     ids_dosen = (await db.execute(
-        _base_response_ids_query("dosen", course_id, current_user)
+        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end)
     )).scalars().all()
     ids_mhs = (await db.execute(
-        _base_response_ids_query("mahasiswa", course_id, current_user)
+        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end)
     )).scalars().all()
 
     if role == "dosen":
