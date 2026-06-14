@@ -19,7 +19,7 @@
         </thead>
         <tbody>
           <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
-          <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data. Pilih mata kuliah terlebih dahulu.</td></tr>
+          <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data CPMK.</td></tr>
           <template v-for="c in rows" :key="c.id">
             <tr :class="{ 'row-active': expandedId === c.id }">
               <td><span class="badge">{{ c.kode_cpmk }}</span></td>
@@ -170,10 +170,11 @@ const activeProgramId = computed<number | null>(() => {
 })
 
 async function fetchData() {
-  if (!filterCourse.value) { rows.value = []; return }
   loading.value = true
   try {
-    const res = await getCpmks({ course_id: filterCourse.value })
+    // "Semua Mata Kuliah" (filter kosong) → ambil semua CPMK; jika dipilih → filter per MK
+    const params = filterCourse.value ? { course_id: filterCourse.value } : {}
+    const res = await getCpmks(params)
     rows.value = res.data
     if (expandedId.value && !rows.value.find((r: any) => r.id === expandedId.value)) {
       expandedId.value = null
@@ -186,6 +187,7 @@ onMounted(async () => {
     const res = await getCourses({ limit: 500 })
     courseList.value = res.data.data
   } catch { /* tetap lanjut meski dropdown gagal */ }
+  await fetchData()  // tampilkan semua CPMK saat halaman dibuka
 })
 
 function openCreate() {

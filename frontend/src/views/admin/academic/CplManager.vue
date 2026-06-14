@@ -17,7 +17,7 @@
         <thead><tr><th>Kode CPL</th><th>Deskripsi (ID)</th><th>Deskripsi (中文)</th><th>Kategori</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>
           <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
-          <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data. Pilih program studi.</td></tr>
+          <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data CPL.</td></tr>
           <tr v-for="c in rows" :key="c.id">
             <td><span class="badge">{{ c.kode_cpl }}</span></td>
             <td>{{ c.deskripsi_id }}</td>
@@ -107,10 +107,11 @@ const defaultForm = () => ({
 const form = ref(defaultForm())
 
 async function fetchData() {
-  if (!filterProgram.value) { rows.value = []; return }
   loading.value = true
   try {
-    const res = await getCpls({ program_id: filterProgram.value })
+    // "Semua Program Studi" (filter kosong) → ambil semua CPL; jika dipilih → filter per prodi
+    const params = filterProgram.value ? { program_id: filterProgram.value } : {}
+    const res = await getCpls(params)
     rows.value = res.data
   } finally { loading.value = false }
 }
@@ -120,6 +121,7 @@ onMounted(async () => {
     const res = await getPrograms({ limit: 500 })
     programList.value = res.data.data
   } catch { /* tetap lanjut meski dropdown gagal */ }
+  await fetchData()  // tampilkan semua CPL saat halaman dibuka
 })
 
 function openCreate() {
