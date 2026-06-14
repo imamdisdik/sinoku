@@ -120,10 +120,15 @@ class OpenQUpdate(BaseModel):
 
 @router.get("/dimensions")
 async def list_dimensions(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
-    # Satu query: semua sub-dimensi beserta count item-nya
+    # Satu query: semua sub-dimensi beserta count item AKTIF-nya
+    # (kondisi is_active diletakkan di ON clause agar sub-dimensi tanpa item aktif tetap muncul dengan count 0)
     subdim_counts = dict((await db.execute(
         select(CippSubDimension.id, func.count(InstrumentItem.id).label("cnt"))
-        .outerjoin(InstrumentItem, InstrumentItem.sub_dimension_id == CippSubDimension.id)
+        .outerjoin(
+            InstrumentItem,
+            (InstrumentItem.sub_dimension_id == CippSubDimension.id)
+            & (InstrumentItem.is_active == True),
+        )
         .group_by(CippSubDimension.id)
     )).all())
 
