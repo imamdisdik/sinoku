@@ -44,6 +44,23 @@
         </div>
       </div>
 
+      <!-- F-05.3: Ringkasan Capaian Pembelajaran (dimensi Produk) -->
+      <div v-if="result.capaian_pembelajaran && result.capaian_pembelajaran.length" style="margin-top:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:#4a5568; margin:0 0 4px;">Ringkasan Capaian Pembelajaran</h3>
+        <p style="font-size:11px; color:#a0aec0; margin:0 0 12px;">Berdasarkan dimensi Produk (capaian kompetensi & hasil belajar). Target tercapai bila skor ≥ 3.5.</p>
+        <table class="capaian-table">
+          <thead><tr><th>Aspek Capaian</th><th>Skor</th><th>Target</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr v-for="c in result.capaian_pembelajaran" :key="c.kode">
+              <td><strong>{{ c.kode }}</strong> — {{ c.nama }}</td>
+              <td>{{ c.skor_rata.toFixed(2) }}</td>
+              <td>{{ c.target.toFixed(1) }}</td>
+              <td><span :class="c.tercapai ? 'cap-ok' : 'cap-no'">{{ c.tercapai ? '✓ Tercapai' : '✗ Belum' }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div v-if="result.open_answers.length" style="margin-top:24px;">
         <h3 style="font-size:14px; font-weight:700; color:#4a5568; margin:0 0 12px;">{{ t('result.open_answers') }}</h3>
         <div v-for="(oa, i) in result.open_answers" :key="i" style="margin-bottom:14px; padding:12px; background:#f7fafc; border-radius:8px;">
@@ -122,6 +139,19 @@ function downloadPdf() {
       margin: { left: marginX, right: marginX },
     })
 
+    // F-05.3: Capaian Pembelajaran (Produk)
+    const capaian = r.capaian_pembelajaran ?? []
+    if (capaian.length) {
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 8,
+        head: [['Aspek Capaian', 'Skor', 'Target', 'Status']],
+        body: capaian.map((c: any) => [`${c.kode} — ${c.nama}`, c.skor_rata.toFixed(2), c.target.toFixed(1), c.tercapai ? 'Tercapai' : 'Belum']),
+        headStyles: { fillColor: [56, 161, 105], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 3 },
+        margin: { left: marginX, right: marginX },
+      })
+    }
+
     // Jawaban terbuka
     const openAnswers = r.open_answers ?? []
     if (openAnswers.length) {
@@ -157,6 +187,11 @@ function downloadPdf() {
 .score-card__bar { height: 4px; background: #e2e8f0; border-radius: 2px; margin: 8px 0; }
 .score-fill { height: 100%; background: #3182ce; border-radius: 2px; }
 .score-card__n { font-size: 11px; color: #a0aec0; }
+.capaian-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.capaian-table th { background: #f7fafc; text-align: left; padding: 8px 10px; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0; }
+.capaian-table td { padding: 8px 10px; border-bottom: 1px solid #f0f4f8; }
+.cap-ok { color: #38a169; font-weight: 700; font-size: 12px; }
+.cap-no { color: #e53e3e; font-weight: 700; font-size: 12px; }
 .btn-action {
   background: #fff; border: 1px solid #cbd5e0; color: #2d3748;
   padding: 7px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap;

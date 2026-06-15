@@ -6,8 +6,11 @@ from datetime import datetime, timezone
 from app.database import get_db
 from app.models.response import AnonymousCode, Response, ResponseItem, ResponseOpenAnswer
 from app.models.instrument import InstrumentItem, CippSubDimension, CippDimension, OpenQuestion
-from app.schemas.response import ResultResponse, CippScoreOut, OpenAnswerOut
+from app.schemas.response import ResultResponse, CippScoreOut, OpenAnswerOut, CapaianOut
 import math
+
+# F-05.3: target capaian (skor Likert dianggap "tercapai" bila >= ambang ini)
+CAPAIAN_TARGET = 3.5
 
 router = APIRouter(prefix="/public", tags=["public-result"])
 
@@ -45,6 +48,7 @@ async def get_result(kode: str, db: AsyncSession = Depends(get_db)):
     bahasa = response.bahasa
 
     cipp_scores = []
+    capaian = []
     for dim in dimensions:
         scores = []
         for sd in dim.sub_dimensions:
@@ -61,6 +65,20 @@ async def get_result(kode: str, db: AsyncSession = Depends(get_db)):
                 std_dev=round(math.sqrt(variance), 2),
                 jumlah_item=len(scores),
             ))
+        # F-05.3: rincian capaian pembelajaran dari dimensi Product (E)
+        if dim.kode == "E":
+            for sd in dim.sub_dimensions:
+                sd_scores = [item_score_map[it.id] for it in sd.items if it.id in item_score_map]
+                if sd_scores:
+                    rata = round(sum(sd_scores) / len(sd_scores), 2)
+                    capaian.append(CapaianOut(
+                        kode=sd.kode,
+                        nama=sd.nama_id if bahasa == "id" else sd.nama_zh,
+                        skor_rata=rata,
+                        target=CAPAIAN_TARGET,
+                        tercapai=rata >= CAPAIAN_TARGET,
+                        jumlah_item=len(sd_scores),
+                    ))
 
     open_rows = (await db.execute(
         select(ResponseOpenAnswer, OpenQuestion)
@@ -83,5 +101,6 @@ async def get_result(kode: str, db: AsyncSession = Depends(get_db)):
         bahasa=response.bahasa,
         submitted_at=response.submitted_at,
         cipp_scores=cipp_scores,
+        capaian_pembelajaran=capaian,
         open_answers=open_answers,
     )

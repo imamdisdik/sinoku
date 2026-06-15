@@ -79,6 +79,16 @@ class OpenAnswerOut(BaseModel):
     jawaban: str
 
 
+class CapaianOut(BaseModel):
+    """F-05.3: rincian capaian pembelajaran per sub-dimensi Produk (E)."""
+    kode: str
+    nama: str
+    skor_rata: float
+    target: float
+    tercapai: bool
+    jumlah_item: int
+
+
 class ResultResponse(BaseModel):
     kode: str
     course: dict
@@ -86,4 +96,5 @@ class ResultResponse(BaseModel):
     bahasa: str
     submitted_at: Optional[datetime]
     cipp_scores: List[CippScoreOut]
+    capaian_pembelajaran: List[CapaianOut] = []
     open_answers: List[OpenAnswerOut]
