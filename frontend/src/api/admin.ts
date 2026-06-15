@@ -75,6 +75,7 @@ export const importInstrumentItems = (file: File) => {
 }
 export const exportInstrumentItems = (template = false) =>
   api.get('/admin/instruments/items/export', { params: { template }, responseType: 'blob' })
+export const getInstrumentItemHistory = (id: number) => api.get(`/admin/instruments/items/${id}/history`)
 export const getOpenQuestions = () => api.get('/admin/instruments/open-questions')
 export const createOpenQuestion = (data: object) => api.post('/admin/instruments/open-questions', data)
 export const updateOpenQuestion = (id: number, data: object) => api.put(`/admin/instruments/open-questions/${id}`, data)

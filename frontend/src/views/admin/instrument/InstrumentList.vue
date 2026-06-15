@@ -86,6 +86,7 @@
                 <td>
                   <div class="action-row">
                     <button class="btn-sm btn-edit" @click="openEdit(item)">Edit</button>
+                    <button class="btn-sm btn-history" @click="openHistory(item)" title="Riwayat perubahan">&#8634; Riwayat</button>
                     <button class="btn-sm" :class="item.is_active ? 'btn-warn' : 'btn-ok'" @click="toggleItem(item)">
                       {{ item.is_active ? 'Nonaktifkan' : 'Aktifkan' }}
                     </button>
@@ -241,6 +242,31 @@
         </div>
       </div>
     </div>
+
+    <!-- F-09.4: Modal Riwayat Perubahan Item -->
+    <div v-if="showHistory" class="modal-overlay" @click.self="showHistory = false">
+      <div class="modal" style="max-width:640px">
+        <h3 class="modal-title">Riwayat Perubahan — {{ historyItem?.kode }}</h3>
+        <div v-if="historyLoading" class="loading-state">Memuat riwayat...</div>
+        <div v-else-if="!historyRows.length" class="empty-state">Belum ada perubahan tercatat untuk item ini.</div>
+        <div v-else class="history-list">
+          <div v-for="h in historyRows" :key="h.id" class="history-entry">
+            <div class="history-head">
+              <span class="history-action">{{ h.action }}</span>
+              <span class="history-date">{{ new Date(h.changed_at).toLocaleString('id-ID') }}</span>
+            </div>
+            <div class="history-body">
+              <div><strong>Teks (dosen):</strong> {{ h.snapshot.text_id_dosen }}</div>
+              <div><strong>Teks (mahasiswa):</strong> {{ h.snapshot.text_id_mahasiswa }}</div>
+              <div class="history-meta">indikator: {{ h.snapshot.indikator || '—' }} · skala {{ h.snapshot.scale_min }}–{{ h.snapshot.scale_max }} · {{ h.snapshot.is_active ? 'aktif' : 'nonaktif' }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="showHistory = false">Tutup</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -250,7 +276,7 @@ import {
   getInstrumentDimensions, getInstrumentItems,
   createInstrumentItem, updateInstrumentItem, toggleInstrumentItem,
   getOpenQuestions, createOpenQuestion, updateOpenQuestion, toggleOpenQuestion,
-  importInstrumentItems, exportInstrumentItems,
+  importInstrumentItems, exportInstrumentItems, getInstrumentItemHistory,
 } from '@/api/admin'
 import { useUiStore } from '@/stores/ui'
 const ui = useUiStore()
@@ -374,6 +400,26 @@ function openEdit(item: any) {
 }
 
 function closeModal() { showModal.value = false }
+
+// F-09.4: riwayat perubahan item
+const showHistory = ref(false)
+const historyItem = ref<any>(null)
+const historyRows = ref<any[]>([])
+const historyLoading = ref(false)
+async function openHistory(item: any) {
+  historyItem.value = item
+  showHistory.value = true
+  historyLoading.value = true
+  historyRows.value = []
+  try {
+    const res = await getInstrumentItemHistory(item.id)
+    historyRows.value = res.data.data ?? []
+  } catch {
+    ui.showToast('Gagal memuat riwayat', 'error')
+  } finally {
+    historyLoading.value = false
+  }
+}
 
 async function saveItem() {
   if (!form.value.kode || !form.value.text_id_dosen || !form.value.text_id_mahasiswa) {
@@ -515,4 +561,15 @@ onMounted(async () => {
 .btn{padding:8px 18px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer}
 .btn-primary{background:#1a365d;color:#fff}
 .btn-secondary{background:#e2e8f0;color:#4a5568}
+.btn-history{background:#faf5ff;color:#6b46c1}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;padding:24px}
+.modal .modal-title{padding:0 0 16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.history-list{display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto}
+.history-entry{border:1px solid #e2e8f0;border-radius:8px;padding:12px}
+.history-head{display:flex;justify-content:space-between;margin-bottom:6px}
+.history-action{background:#edf2f7;color:#4a5568;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700;text-transform:uppercase}
+.history-date{font-size:12px;color:#a0aec0}
+.history-body{font-size:12px;color:#2d3748;line-height:1.5}
+.history-meta{color:#a0aec0;margin-top:4px}
 </style>

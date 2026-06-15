@@ -1,5 +1,8 @@
-from sqlalchemy import String, Boolean, Integer, SmallInteger, ForeignKey, Text, DateTime, CHAR
+from sqlalchemy import String, Boolean, Integer, BigInteger, SmallInteger, ForeignKey, Text, DateTime, CHAR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from datetime import datetime, timezone
+import uuid
 from app.database import Base
 
 
@@ -54,6 +57,18 @@ class InstrumentItem(Base):
 
     sub_dimension: Mapped["CippSubDimension"] = relationship("CippSubDimension", back_populates="items")
     response_items: Mapped[list["ResponseItem"]] = relationship("ResponseItem", back_populates="item")
+
+
+class InstrumentItemHistory(Base):
+    """F-09.4: snapshot item instrumen sebelum tiap perubahan (audit trail)."""
+    __tablename__ = "instrument_item_history"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    item_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("instrument_items.id", ondelete="SET NULL"), nullable=True)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)  # update | delete
+    changed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class OpenQuestion(Base):

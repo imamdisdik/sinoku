@@ -7,9 +7,22 @@ from pydantic import BaseModel
 import csv
 import io
 from app.database import get_db
-from app.dependencies import require_admin, require_superadmin_or_admin
+from app.dependencies import require_admin, require_superadmin_or_admin, get_current_user
 from app.models.auth import User
-from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem, OpenQuestion
+from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem, OpenQuestion, InstrumentItemHistory
+
+
+def _snapshot_item(item: InstrumentItem) -> dict:
+    """Ambil snapshot field-field item untuk riwayat (F-09.4)."""
+    return {
+        "kode": item.kode, "sub_dimension_id": item.sub_dimension_id, "nomor_urut": item.nomor_urut,
+        "text_id_dosen": item.text_id_dosen, "text_id_mahasiswa": item.text_id_mahasiswa,
+        "text_zh_dosen": item.text_zh_dosen, "text_zh_mahasiswa": item.text_zh_mahasiswa,
+        "indikator": item.indikator, "kompetensi_dosen": item.kompetensi_dosen,
+        "kompetensi_mahasiswa": item.kompetensi_mahasiswa, "answer_type": item.answer_type,
+        "scale_min": item.scale_min, "scale_max": item.scale_max,
+        "is_required": item.is_required, "is_active": item.is_active,
+    }
 
 router = APIRouter(prefix="/admin/instruments", tags=["admin-instruments"])
 
@@ -209,16 +222,39 @@ async def update_item(
     item_id: int,
     body: ItemUpdate,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_superadmin_or_admin),
+    current_user: User = Depends(require_superadmin_or_admin),
 ):
     item = await db.get(InstrumentItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item tidak ditemukan")
+    # F-09.4: simpan snapshot kondisi SEBELUM diubah
+    db.add(InstrumentItemHistory(
+        item_id=item.id, snapshot=_snapshot_item(item),
+        action="update", changed_by=current_user.id,
+    ))
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(item, field, val)
     await db.commit()
     await db.refresh(item)
     return ItemOut.model_validate(item)
+
+
+@router.get("/items/{item_id}/history")
+async def item_history(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """F-09.4: riwayat perubahan satu item (snapshot sebelum tiap edit)."""
+    rows = (await db.execute(
+        select(InstrumentItemHistory)
+        .where(InstrumentItemHistory.item_id == item_id)
+        .order_by(InstrumentItemHistory.changed_at.desc())
+    )).scalars().all()
+    return {"data": [
+        {"id": r.id, "action": r.action, "changed_at": r.changed_at.isoformat(), "snapshot": r.snapshot}
+        for r in rows
+    ]}
 
 
 @router.patch("/items/{item_id}/toggle")
@@ -239,11 +275,18 @@ async def toggle_item(
 async def delete_item(
     item_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_superadmin_or_admin),
+    current_user: User = Depends(require_superadmin_or_admin),
 ):
     item = await db.get(InstrumentItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item tidak ditemukan")
+    # F-09.4: catat snapshot terakhir sebelum hapus (history ikut terhapus via CASCADE,
+    # namun snapshot disisipkan agar tercatat di transaksi yang sama bila diperlukan audit)
+    db.add(InstrumentItemHistory(
+        item_id=item.id, snapshot=_snapshot_item(item),
+        action="delete", changed_by=current_user.id,
+    ))
+    await db.flush()
     await db.delete(item)
     await db.commit()
 
