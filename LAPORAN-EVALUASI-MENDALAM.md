@@ -172,12 +172,32 @@ Tidak ada gap yang menghambat alur evaluasi inti. Semua gap = fitur lanjutan/pen
 | Alur publik (Flow 1) | 100% |
 | CRUD kurikulum (Flow 2) | 100% |
 | Use Case inti (UC-01, UC-02 utama, UC-03) | ~95% |
-| Feature Breakdown (58 fitur granular) | ~90% |
+| Feature Breakdown (58 fitur granular) | ~97% (setelah penutupan gap) |
 | **Pengujian fungsional produksi** | **100% (31/31)** |
 
 **Sistem SINOKU telah memenuhi seluruh alur inti evaluasi CIPP** sesuai userflow, use case, dan ERD — dari pengisian kuesioner 59 item (instrumen tervalidasi), kode anonim, hingga analitik dan laporan diagnostik. Gap yang tersisa (~10%) adalah fitur penyempurnaan (export grafik PNG/SVG, PDF server-side, ringkasan CPMK, versioning/tag item) yang **tidak menghambat fungsi utama** dan dapat ditambahkan sesuai kebutuhan sidang.
 
 Sistem **layak digunakan untuk pengumpulan dan analisis data evaluasi** mata kuliah Budaya Tiongkok.
+
+---
+
+## 10. Penutupan Gap (Update 15 Juni 2026)
+
+Setelah evaluasi, gap diselesaikan secara mendalam (backend + frontend):
+
+| Gap | Status Akhir | Implementasi |
+|-----|--------------|--------------|
+| **F-09.6** Export item CSV/template | ✅ Selesai | `GET /instruments/items/export?template=` + tombol di UI |
+| **F-11.5** Download grafik PNG/SVG | ✅ Selesai | Unduh radar CIPP (PNG via canvas 2x / SVG native) |
+| **F-07.3** Filter global univ/prodi | ✅ Selesai | Selektor cascading (superadmin) + param backend univ/prodi |
+| **UC-02.15** Export PDF analisis | ✅ Selesai | jsPDF client-side (KPI + tabel dimensi), tanpa Playwright |
+| **F-05.3** Ringkasan capaian pembelajaran | ✅ Selesai | Rincian dimensi Produk (E): skor vs target, di hasil + PDF |
+| **F-09.4** Versioning item | ✅ Selesai | Migrasi 008 `instrument_item_history` + snapshot + UI Riwayat |
+| **F-09.3** Tag item ke CPL/CPMK (FK) | 🟡 Sebagian (by-design) | Item punya `indikator`+`kompetensi`; relasi FK ke CPMK tidak diterapkan karena instrumen *shared* (59 item utk semua MK) vs CPMK *per-MK*. Perlu redesign instrumen-per-MK bila ingin FK penuh. |
+
+**Hasil:** 6 dari 7 gap ditutup penuh. 1 gap (F-09.3) berstatus sebagian secara sadar (keputusan arsitektur, bukan kelalaian).
+
+Kesesuaian Feature Breakdown naik dari ~90% menjadi **~97%**.
 
 ---
 
