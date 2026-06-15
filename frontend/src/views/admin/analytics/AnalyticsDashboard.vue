@@ -3,6 +3,16 @@
     <div class="page-header">
       <h1 class="page-title">Analitik CIPP</h1>
       <div class="header-filters">
+        <template v-if="isSuperadmin">
+          <select v-model.number="filters.university_id" @change="onUnivChange" class="filter-select" title="Filter universitas">
+            <option :value="null">Semua Universitas</option>
+            <option v-for="u in universities" :key="u.id" :value="u.id">{{ u.nama_singkat }}</option>
+          </select>
+          <select v-model.number="filters.program_id" @change="fetchAll" class="filter-select" title="Filter program studi">
+            <option :value="null">Semua Prodi</option>
+            <option v-for="p in filteredPrograms" :key="p.id" :value="p.id">{{ p.nama_singkat }}</option>
+          </select>
+        </template>
         <select v-model.number="filters.course_id" @change="fetchAll" class="filter-select">
           <option :value="null">Semua Mata Kuliah</option>
           <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode }} — {{ c.nama }}</option>
@@ -14,7 +24,7 @@
         </select>
         <input type="date" v-model="filters.periode_start" @change="fetchAll" class="filter-select" title="Periode mulai" />
         <input type="date" v-model="filters.periode_end" @change="fetchAll" class="filter-select" title="Periode akhir" />
-        <button v-if="filters.course_id || filters.role || filters.periode_start || filters.periode_end" @click="resetFilters" class="filter-reset" title="Reset filter">✕ Reset</button>
+        <button v-if="filters.course_id || filters.university_id || filters.program_id || filters.role || filters.periode_start || filters.periode_end" @click="resetFilters" class="filter-reset" title="Reset filter">✕ Reset</button>
         <select v-model="activeTab" class="filter-select">
           <option value="overview">Ringkasan CIPP</option>
           <option value="cipp-scores">Skor Sub-Dimensi</option>
@@ -70,9 +80,15 @@
           </div>
         </div>
 
-        <div class="section-title" style="margin-top:32px;">Radar Dimensi CIPP</div>
+        <div class="section-title" style="margin-top:32px;display:flex;justify-content:space-between;align-items:center">
+          <span>Radar Dimensi CIPP</span>
+          <span class="chart-dl">
+            <button class="chart-dl-btn" @click="downloadChart('png')" title="Unduh PNG">&#128247; PNG</button>
+            <button class="chart-dl-btn" @click="downloadChart('svg')" title="Unduh SVG">&#128190; SVG</button>
+          </span>
+        </div>
         <div class="radar-wrap">
-          <svg viewBox="0 0 300 300" width="280" height="280">
+          <svg ref="radarSvg" viewBox="0 0 300 300" width="280" height="280" xmlns="http://www.w3.org/2000/svg">
             <circle v-for="r in [12,24,36,48,60]" :key="r" cx="150" cy="150" :r="r" fill="none" stroke="#e2e8f0" stroke-width="1"/>
             <line v-for="(pt, i) in radarAxes" :key="'ax'+i" x1="150" y1="150" :x2="pt.x" :y2="pt.y" stroke="#cbd5e0" stroke-width="1"/>
             <text v-for="(pt, i) in radarAxes" :key="'lb'+i" :x="pt.lx" :y="pt.ly" text-anchor="middle" font-size="11" fill="#4a5568" font-weight="600">{{ pt.label }}</text>
@@ -359,7 +375,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { getDashboardKpi, getProblemHeatmap, getCourses, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix, getAnalyticsComparisonGroups } from '@/api/admin'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+import { getDashboardKpi, getProblemHeatmap, getCourses, getUniversities, getPrograms, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix, getAnalyticsComparisonGroups } from '@/api/admin'
+
+const { isSuperadmin } = storeToRefs(useAuthStore())
 
 const loading = ref(true)
 const loadingComparison = ref(false)
@@ -370,21 +390,36 @@ const activeTab = ref('overview')
 const threshold = ref(3.0)
 const filters = ref({
   course_id: null as number | null,
+  university_id: null as number | null,
+  program_id: null as number | null,
   role: '' as '' | 'dosen' | 'mahasiswa',
   periode_start: '' as string,
   periode_end: '' as string,
 })
-// Bangun query param global (UC-17f): hanya sertakan yang terisi
+const universities = ref<any[]>([])
+const programs = ref<any[]>([])
+const filteredPrograms = computed(() =>
+  filters.value.university_id
+    ? programs.value.filter((p: any) => p.university_id === filters.value.university_id)
+    : programs.value,
+)
+// Bangun query param global (UC-17f + F-07.3): hanya sertakan yang terisi
 function globalParams(extra: Record<string, any> = {}) {
   const p: Record<string, any> = { ...extra }
   if (filters.value.course_id) p.course_id = filters.value.course_id
+  if (filters.value.university_id) p.university_id = filters.value.university_id
+  if (filters.value.program_id) p.program_id = filters.value.program_id
   if (filters.value.role) p.role = filters.value.role
   if (filters.value.periode_start) p.periode_start = filters.value.periode_start
   if (filters.value.periode_end) p.periode_end = filters.value.periode_end
   return p
 }
+function onUnivChange() {
+  filters.value.program_id = null  // reset prodi saat universitas berubah
+  fetchAll()
+}
 function resetFilters() {
-  filters.value = { course_id: null, role: '', periode_start: '', periode_end: '' }
+  filters.value = { course_id: null, university_id: null, program_id: null, role: '', periode_start: '', periode_end: '' }
   fetchAll()
 }
 const matrixCourseId = ref<number | null>(null)
@@ -398,6 +433,45 @@ const matrixData = ref<any>({ cpls: [], cpmks: [], matrix: [] })
 const loadingGroups = ref(false)
 const groupBy = ref('university')
 const groupsData = ref<any>({ group_by: 'university', dimensions: [], data: [] })
+const radarSvg = ref<SVGSVGElement | null>(null)
+
+// F-11.5: unduh grafik radar sebagai SVG (native) atau PNG (via canvas)
+function downloadChart(format: 'png' | 'svg') {
+  const el = radarSvg.value
+  if (!el) return
+  const clone = el.cloneNode(true) as SVGSVGElement
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  clone.style.background = '#ffffff'
+  const svgStr = new XMLSerializer().serializeToString(clone)
+  const trigger = (url: string, ext: string) => {
+    const a = document.createElement('a')
+    a.href = url; a.download = `radar-cipp.${ext}`; a.click()
+  }
+  if (format === 'svg') {
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    trigger(url, 'svg'); URL.revokeObjectURL(url)
+    return
+  }
+  // PNG: render SVG ke canvas resolusi 2x lalu ekspor
+  const img = new Image()
+  const svgUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)))
+  img.onload = () => {
+    const scale = 2, size = 300
+    const canvas = document.createElement('canvas')
+    canvas.width = size * scale; canvas.height = size * scale
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.scale(scale, scale)
+    ctx.drawImage(img, 0, 0, size, size)
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      trigger(url, 'png'); URL.revokeObjectURL(url)
+    }, 'image/png')
+  }
+  img.src = svgUrl
+}
 
 const COLORS: Record<string, string> = { B: '#3182ce', C: '#38a169', D: '#d69e2e', E: '#e53e3e' }
 
@@ -531,6 +605,15 @@ watch(activeTab, (tab) => {
 onMounted(async () => {
   const res = await getCourses({ limit: 200 }).catch(() => ({ data: { data: [] } }))
   courses.value = (res.data.data ?? []).map((c: any) => ({ id: c.id, kode: c.kode_mk, nama: c.nama_id }))
+  // F-07.3: muat universitas & prodi untuk filter global (superadmin)
+  if (isSuperadmin.value) {
+    const [u, p] = await Promise.all([
+      getUniversities({ limit: 200 }).catch(() => ({ data: { data: [] } })),
+      getPrograms({ limit: 500 }).catch(() => ({ data: { data: [] } })),
+    ])
+    universities.value = u.data.data ?? []
+    programs.value = p.data.data ?? []
+  }
   await fetchAll()
 })
 </script>
@@ -542,6 +625,9 @@ onMounted(async () => {
 .filter-reset{padding:8px 12px;border:1px solid #fc8181;background:#fff5f5;color:#c53030;border-radius:6px;font-size:12px;cursor:pointer}
 .filter-reset:hover{background:#fed7d7}
 .filter-hint{font-size:11px;color:#a0aec0;font-style:italic}
+.chart-dl{display:flex;gap:6px}
+.chart-dl-btn{background:#fff;border:1px solid #cbd5e0;color:#2d3748;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
+.chart-dl-btn:hover{background:#f7fafc;border-color:#a0aec0}
 .filter-select{padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;background:#fff}
 .loading-state{text-align:center;color:#718096;padding:60px;background:#fff;border-radius:10px}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}

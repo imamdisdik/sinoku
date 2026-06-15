@@ -14,15 +14,21 @@ from app.models.academic import University, Program, Course
 router = APIRouter(prefix="/admin/dashboard", tags=["admin-dashboard"])
 
 
-def _scope_responses(q, current_user: User):
-    """Filter response berdasarkan scope role."""
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+def _scope_responses(q, current_user: User, university_id=None, program_id=None):
+    """Filter response berdasarkan scope role + filter eksplisit univ/prodi (F-07.3)."""
+    scoped = current_user.role in ("admin", "dosen") and current_user.university_id
+    if scoped or university_id or program_id:
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
-        # Dosen: scope ke program sendiri
-        if current_user.role == "dosen" and current_user.program_id:
-            q = q.where(Course.program_id == current_user.program_id)
+        )
+        if scoped:
+            q = q.where(Program.university_id == current_user.university_id)
+            if current_user.role == "dosen" and current_user.program_id:
+                q = q.where(Course.program_id == current_user.program_id)
+        if university_id:
+            q = q.where(Program.university_id == university_id)
+        if program_id:
+            q = q.where(Course.program_id == program_id)
     return q
 
 
@@ -31,11 +37,13 @@ async def dashboard_kpi(
     course_id: Optional[int] = None,
     periode_start: Optional[date] = None,
     periode_end: Optional[date] = None,
+    university_id: Optional[int] = None,
+    program_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     q_resp = select(Response).where(Response.is_complete == True)
-    q_resp = _scope_responses(q_resp, current_user)
+    q_resp = _scope_responses(q_resp, current_user, university_id, program_id)
 
     if course_id:
         q_resp = q_resp.where(Response.course_id == course_id)
