@@ -1,281 +1,184 @@
-# Laporan Evaluasi Mendalam SINOKU
+# Laporan Evaluasi Mendalam Sistem SINOKU
 
-> Evaluasi end-to-end sistem SINOKU terhadap **Use Case Diagram**, **User Flow**, dan **ERD**.
-> Disusun per minggu (Week 1–6) dan dipisah. Setiap klaim diverifikasi langsung ke kode.
-> Tanggal evaluasi: 13 Juni 2026 · Model: Claude Opus 4.8
+> Evaluasi menyeluruh dari awal sampai akhir, mencocokkan **Feature Breakdown, User Flow, Use Case, ERD, dan revisi** terhadap **source code aktual** (backend FastAPI + frontend Vue 3) serta fitur bawaannya.
 
----
-
-## Ringkasan Eksekutif
-
-| Aspek | Sebelum Evaluasi | Sesudah Perbaikan |
-|-------|------------------|-------------------|
-| **Kelengkapan fungsional** | ± 80% | **± 95%** |
-| **Reproducibility deploy** | ❌ Tidak bisa deploy dari nol | ✅ Reproducible penuh |
-| **Kesesuaian ERD** | ✅ 100% (31 tabel) | ✅ 100% |
-| **Use case inti (happy path)** | ✅ Berfungsi | ✅ Berfungsi |
-
-**Kesimpulan:** Sistem kini **reproducible** (bisa deploy dari database kosong), seluruh alur inti berfungsi, dan mayoritas sub-fitur use case telah dilengkapi. Sisa 3 sub-fitur (UC-08b, UC-18b, UC-18e) **sengaja ditunda** dengan alasan teknis yang dijelaskan di bagian akhir.
-
-### Yang diperbaiki pada putaran evaluasi ini
-
-1. **[KRITIS] Skema database reproducible** — repo sebelumnya tidak punya cara membuat ~24 tabel inti.
-2. **Hasil publik: Download PDF (UC-09) + Cetak (UC-10)**.
-3. **Perbandingan Univ/Prodi/MK (UC-17b)**.
-4. **Data mentah superadmin-only (UC-18d)**.
-5. **Laporan diagnostik: RPS alignment (UC-19c), analisis CPL-CPMK (UC-19d), saran revisi (UC-19f)**.
+| | |
+|---|---|
+| **Tanggal evaluasi** | 15 Juni 2026 |
+| **Acuan spec** | `DOKUMENTASI/SINOKU — Feature Breakdown, User Flow & Use Case.docx`, 6 diagram ERD, 5 diagram Flow, 5 diagram Use Case |
+| **Sumber kebenaran data** | `DOKUMENTASI/Data/Data kuisioner.xlsx` (59 item) |
+| **Kondisi sistem** | Ter-deploy & teruji di produksi (`http://202.10.34.93`) |
+| **Skor kesesuaian fitur** | **≈ 90%** (inti 100% fungsional & teruji) |
 
 ---
 
-## Week 1 — Fondasi, Auth & Skema Database
+## 1. Metodologi
 
-### Cakupan
-Setup proyek (FastAPI + Vue + Docker), autentikasi JWT, dan struktur database inti. Use case: **UC-01** (Landing), **UC-11/12** (Login/Logout).
-
-### Hasil verifikasi
-| Item | Status | Bukti |
-|------|--------|-------|
-| Auth JWT (access 60m, refresh 30 hari) | ✅ | `auth.py`, `security.py` |
-| Tabel `sessions` + revoke token | ✅ | `auth.py:42` logout set `is_revoked`; `refresh` cek `is_revoked` & `expires_at` |
-| Landing page + statistik | ✅ | `public/landing.py` |
-| ERD-6 (auth) sesuai | ✅ | `sessions`, `users` cocok model & ERD |
-
-### 🔴 Masalah kritis ditemukan & diperbaiki
-**Repo tidak punya mekanisme membuat ~24 tabel inti.** Tidak ada migrasi `001`, tidak ada `Base.metadata.create_all`, dan migrasi `002` (`ALTER TABLE responses`) **gagal pada database kosong**. Fresh deploy mustahil tanpa intervensi manual — risiko fatal untuk reproduksibilitas sidang.
-
-**Perbaikan:**
-- `001_init_schema.sql` — membuat seluruh 24 tabel inti sesuai model & ERD, idempotent (`IF NOT EXISTS`).
-- `002_dosen_flow.sql` — CHECK constraint dibuat idempotent (guard `pg_constraint`).
-- `006_seed_superadmin.sql` — akun superadmin default agar bisa login (idempotent).
-
-### Catatan kejujuran
-Pada review sebelumnya saya melabeli "7 endpoint kehilangan `db.commit()`" sebagai **CRITICAL**. Itu **keliru**: `get_db()` melakukan **auto-commit** di akhir tiap request ([database.py:28](backend/app/database.py)), sehingga data tetap tersimpan. Penambahan commit eksplisit bersifat redundan (tidak merusak), bukan perbaikan bug kritis.
+Setiap fitur (`F-xx.x`) dan use case (`UC-xx.x`) dari dokumen spec ditelusuri ke berkas source code nyata (backend router/model + frontend view), lalu diverifikasi via pengujian black-box ke server produksi (lihat `LAPORAN-PENGUJIAN.md`, 31/31 PASS). Status: ✅ ada & teruji · 🟡 sebagian/by-design · ❌ belum ada.
 
 ---
 
-## Week 2 — Manajemen Akademik & Dashboard
+## 2. Kesesuaian Aktor (5 aktor)
 
-### Cakupan
-CRUD akademik + dashboard KPI. Use case: **UC-13**, **UC-14a–g**.
+| Aktor | Spec | Implementasi | Status |
+|-------|------|--------------|--------|
+| Responden Mahasiswa | Publik tanpa login | alur survei publik | ✅ |
+| Responden Dosen | Publik / login | `start-dosen` (JWT) | ✅ |
+| Admin | Login penuh | `require_admin` + scoping | ✅ |
+| Dosen (role login) | Lihat MK sendiri | scoping `program_id` | ✅ |
+| Sistem | Proses otomatis | generate kode, agregasi snapshot | ✅ |
 
-### Hasil verifikasi
-| Use Case | Endpoint | Status |
+---
+
+## 3. Evaluasi Feature Breakdown vs Source Code
+
+### Modul Publik
+
+| ID | Fitur | Berkas Implementasi | Status |
+|----|-------|---------------------|--------|
+| F-01.1 | Hero Section | `views/public/LandingPage.vue` | ✅ |
+| F-01.2 | Penjelasan 4 dimensi CIPP | LandingPage.vue (19 referensi CIPP) | ✅ |
+| F-01.3 | CTA Mulai Evaluasi | LandingPage.vue | ✅ |
+| F-01.4 | Toggle Bahasa ID/中文 (localStorage) | i18n + `stores/ui` | ✅ |
+| F-02.1–5 | Pilih univ→prodi→MK→peran→bahasa | `survey/SurveySelector.vue`, `public/survey.py` | ✅ |
+| F-02.6 | Halaman Consent | `survey/SurveyConsent.vue` | ✅ |
+| F-03.1–4 | 4 Step CIPP (Context/Input/Process/Product) | `survey/SurveyStep*.vue`, **59 item** | ✅ |
+| F-03.5 | Progress Bar | `components/survey/SurveyProgressBar.vue` | ✅ |
+| F-03.6 | Navigasi Prev/Next (simpan state) | `stores/survey` | ✅ |
+| F-03.7 | Validasi per step (item wajib) | `canProceed` di SurveyStep*.vue | ✅ |
+| F-04.1 | Submit semua jawaban | `POST /survey/{id}/answers` | ✅ |
+| F-04.2 | Generate Kode Anonim | `services/code_generator.py` (SIN-YYYY-XXXX) | ✅ |
+| F-04.3 | Halaman Terima Kasih + copy | `survey/SurveyThankYou.vue` | ✅ |
+| F-05.1 | Input Kode Anonim | `result/ResultByCode.vue` | ✅ |
+| F-05.2 | Ringkasan Skor CIPP | ResultByCode.vue | ✅ |
+| **F-05.3** | **Ringkasan CPMK (capaian vs target)** | — | **❌ belum ada** |
+| F-05.4 | Download PDF (jsPDF, A4) | ResultByCode.vue (revisi UC-09) | ✅ |
+| F-05.5 | Print Hasil | ResultByCode.vue + `@media print` | ✅ |
+
+### Modul Admin
+
+| ID | Fitur | Berkas Implementasi | Status |
+|----|-------|---------------------|--------|
+| F-06.1 | Login (JWT) | `routers/auth.py` | ✅ |
+| F-06.2 | Logout (revoke session) | auth.py + tabel `sessions` | ✅ |
+| F-06.3 | Refresh Token | auth.py | ✅ |
+| F-06.4 | Role Guard | `dependencies.py` | ✅ |
+| F-07.1 | KPI Cards | `admin/dashboard.py`, `DashboardHome.vue` | ✅ |
+| F-07.2 | Heatmap Masalah | `dashboard/problem-heatmap` | ✅ |
+| F-07.3 | **Filter Global** (univ/prodi/MK/periode) | MK + peran + periode (revisi UC-17f) | 🟡 univ/prodi belum jadi selektor global |
+| F-08.1–7 | CRUD Univ/Prodi/MK/CPL/CPMK + mapping | `admin/academic.py` | ✅ |
+| F-08.8–9 | CRUD RPS + Checklist | `admin/rps.py` | ✅ |
+| F-08.10–11 | CRUD Skema + Rubrik Asesmen | `admin/assessment.py` | ✅ |
+| F-08.12 | Integrasi MBKM | assessment.py (+ `GET /{id}` revisi) | ✅ |
+| F-09.1 | CRUD Instrumen (versi/bahasa/status) | dikelola via dimensi+item langsung | 🟡 disederhanakan (tanpa entitas "Instrumen" terpisah) |
+| F-09.2 | CRUD Item Kuesioner (ID+ZH, tipe, dimensi) | `admin/instrument.py` | ✅ |
+| **F-09.3** | **Tag Item ke CPL/CPMK/RPS** | item punya `indikator`/`kompetensi`, tanpa tag eksplisit | **❌ belum ada** |
+| **F-09.4** | **Versioning Item (riwayat)** | — | **❌ belum ada** |
+| F-09.5 | Import CSV item | `POST /instruments/items/import` (revisi) | ✅ |
+| **F-09.6** | **Export CSV item + template** | — (ada export data, bukan template item) | **❌ belum ada** |
+| F-10.1–3 | List/Toggle/Filter Kode Anonim | `admin/anonymous.py` | ✅ |
+| F-11.1 | Grafik Skor CIPP | `analytics/cipp-scores` | ✅ |
+| F-11.2 | Perbandingan Antar Entitas (univ/prodi/MK) | `analytics/comparison-groups` (revisi UC-17b) | ✅ |
+| F-11.3 | Heatmap CPL–CPMK | `analytics/cpl-cpmk-matrix` (revisi UC-17c) | ✅ |
+| F-11.4 | Histogram Distribusi | `analytics/distribution` | ✅ |
+| **F-11.5** | **Download PNG/SVG per grafik** | — | **❌ belum ada** |
+
+### Export & Laporan Diagnostik
+
+| Fitur | Berkas | Status |
+|-------|--------|--------|
+| Export Excel/CSV (respons, skor, profil) | `admin/export.py` | ✅ |
+| Export data mentah superadmin-only | export.py (revisi UC-18d) | ✅ |
+| **Export PDF analisis (server-side/Playwright)** | — | **❌ belum ada** |
+| Generate Laporan Diagnostik + snapshot JSONB | `admin/report.py` | ✅ |
+| Snapshot: skor CIPP, profil, rekomendasi | report.py | ✅ |
+| Snapshot: RPS-alignment, CPL-CPMK, saran revisi | report.py (revisi UC-19c/d/f) | ✅ |
+| Export PDF diagnostik | `window.print` sisi klien (bukan server) | 🟡 sebagian |
+| Histori laporan | `GET /admin/reports` | ✅ |
+
+---
+
+## 4. Evaluasi Use Case
+
+| Kelompok | Use Case | Status |
 |----------|----------|--------|
-| UC-13 Dashboard KPI | `/admin/dashboard/kpi` | ✅ |
-| UC-13 Problem Heatmap | `/admin/dashboard/problem-heatmap` | ✅ (agregasi 1 query, `case()`) |
-| UC-14a Universitas | `/admin/universities` CRUD | ✅ |
-| UC-14b Program Studi | `/admin/programs` CRUD | ✅ |
-| UC-14c Mata Kuliah | `/admin/courses` CRUD | ✅ |
-| UC-14d CPL | `/admin/cpls` CRUD | ✅ |
-| UC-14e Mapping MK→CPL | `POST /admin/courses/{id}/cpls` | ✅ (bulk, anti N+1) |
-| UC-14f CPMK | `/admin/cpmks` CRUD | ✅ |
-| UC-14g Mapping CPMK→CPL | `POST /admin/cpmks/{id}/cpls` | ✅ |
-
-### Kualitas
-- **University scoping** konsisten: admin hanya melihat data universitasnya, dosen dibatasi ke program studinya (`academic.py` join Program → `university_id`).
-- ERD-2 (akademik) cocok 100%.
-
-### Gap
-Tidak ada. Week 2 lengkap.
+| **UC-01 (Responden)** | UC-01.1 s/d 01.7 (landing→submit→kode) | ✅ semua |
+| | UC-01.8 lihat hasil (jika diaktifkan) | ✅ |
+| | UC-01.9 / 01.10 Download PDF / Print | ✅ (revisi) |
+| **UC-02 (Admin)** | UC-02.1–13, 02.16, 02.17, 02.19 | ✅ |
+| | UC-02.14 Download PNG/SVG grafik | ❌ |
+| | UC-02.15 Download PDF laporan analisis | ❌ |
+| | UC-02.18 Export PDF diagnostik | 🟡 (print klien) |
+| **UC-03 (Dosen login)** | UC-03.1–04 (analisis & laporan MK sendiri) | ✅ (scoping) |
 
 ---
 
-## Week 3 — Instrumen CIPP & Survey Mahasiswa
+## 5. Kesesuaian ERD (31 tabel)
 
-### Cakupan
-Manajemen instrumen + alur kuesioner publik. Use case: **UC-02→10**, **UC-15**, **UC-16**.
-
-### Hasil verifikasi
-| Use Case | Status | Catatan |
-|----------|--------|---------|
-| UC-02 (a–d) Seleksi konteks | ✅ | univ→prodi→MK→peran→bahasa |
-| UC-03 Consent | ✅ | |
-| UC-04 (a–d) 4 step CIPP | ✅ | B/C/D/E |
-| UC-05 Navigasi + UC-05a validasi wajib | ✅ | |
-| UC-06 Submit | ✅ | |
-| UC-07 Kode anonim + UC-07a copy | ✅ | |
-| UC-08 + UC-08a Skor CIPP | ✅ | `public/result.py` |
-| **UC-08b Ringkasan CPMK** | ⏸️ **Ditunda** | Lihat bagian "Ditunda" |
-| **UC-09 Download PDF** | ✅ **Baru** | jsPDF client-side |
-| **UC-10 Print** | ✅ **Baru** | `@media print` |
-| UC-15 Kelola Instrumen | ✅ | + **import CSV** |
-| UC-16 Kelola Kode Anonim | ✅ | list + toggle |
-
-### Perbaikan putaran ini
-- **UC-09 + UC-10** ditambahkan ke `ResultByCode.vue` (sebelumnya jsPDF terinstall tapi tak dipakai).
-
-### ERD
-ERD-4 (instrumen: 4 dimensi, 15 sub-dimensi, 59 item, 8 pertanyaan terbuka) & ERD-5 (responden + 6 junction) cocok 100%.
+Seluruh **31 tabel** ERD ada di model SQLAlchemy & migrasi (`001_init_schema.sql` ... `007`):
+akademik (universities, programs, courses, cpls, cpmks, 2 mapping), auth (users, **sessions**), instrumen (cipp_dimensions, cipp_sub_dimensions, instrument_items, open_questions), responden (respondents + 6 junction), respons (responses dgn `user_id`+`instrument_version`, response_items, response_open_answers, anonymous_codes), RPS/asesmen (rps_versions, rps_checklist_items/responses, assessment_schemes/rubrics, mbkm_integrations), laporan (diagnostic_reports). **Kesesuaian ERD: 100%.**
 
 ---
 
-## Week 4 — Analitik CIPP, RPS & Survey Dosen
+## 6. Kesesuaian User Flow (5 flow)
 
-### Cakupan
-Analitik + RPS + alur dosen. Use case: **UC-14h–i**, **UC-17a–f**, **UC-05 dosen**.
-
-### Hasil verifikasi
-| Use Case | Endpoint | Status |
-|----------|----------|--------|
-| UC-17a Grafik Skor CIPP | `/analytics/cipp-scores` | ✅ + breakdown sub-dimensi |
-| **UC-17b Perbandingan Univ/Prodi/MK** | `/analytics/comparison-groups` | ✅ **Baru** |
-| UC-17c Heatmap CPL-CPMK | `/analytics/cpl-cpmk-matrix` | ✅ |
-| UC-17d Histogram Distribusi | `/analytics/distribution` | ✅ |
-| UC-17e Heatmap Masalah | `/dashboard/problem-heatmap` | ✅ |
-| UC-17f Filter Interaktif | (filter course di semua tab) | ✅ parsial |
-| UC-14h Kelola RPS | `/admin/rps` CRUD | ✅ |
-| UC-14i Checklist RPS | `/admin/rps/{id}/checklist` | ✅ (auto-create) |
-| UC-05 Survey Dosen | `POST /survey/start-dosen` | ✅ (JWT, profil dari akun) |
-
-### Perbaikan putaran ini
-- **UC-17b** ditambahkan sebagai endpoint + tab baru (berbeda dari "Dosen vs Mahasiswa" yang sudah ada). Mendukung group_by university/program/course, ter-scope per universitas.
-
-### Catatan
-- "Dosen vs Mahasiswa" (`/analytics/comparison`) adalah fitur tambahan yang bermanfaat, dipertahankan.
-- UC-17f bersifat parsial: filter course tersedia; filter global (periode/role) belum di semua tab. Tidak diblokir karena data dasar sudah ada.
+| Flow | Status |
+|------|--------|
+| Flow 1 · Responden Mengisi Kuesioner | ✅ teruji E2E (mhs & dosen) |
+| Flow 2 · Admin Mengelola Kurikulum | ✅ teruji CRUD 100% |
+| Flow 3 · Admin Mengelola Instrumen | ✅ (item + import; tanpa versioning/tag) |
+| Flow 4 · Admin Analisis & Export | ✅ Excel/CSV; ❌ PNG/SVG/PDF grafik |
+| Flow 5 · Admin Generate Laporan Diagnostik | ✅ + seksi RPS/CPL-CPMK/saran |
 
 ---
 
-## Week 5 — Skema Penilaian, Rubrik & MBKM
+## 7. Riwayat Revisi (50 commit)
 
-### Cakupan
-Sistem penilaian akademik. Use case: **UC-14j–l**.
+Revisi besar selama pengembangan & evaluasi (terbaru → lama):
 
-### Hasil verifikasi
-| Use Case | Endpoint | Status |
-|----------|----------|--------|
-| UC-14j Skema Penilaian | `/assessment/schemes` CRUD | ✅ |
-| UC-14k Rubrik | `/assessment/schemes/{id}/rubrics` CRUD | ✅ |
-| UC-14l MBKM | `/assessment/mbkm` CRUD + toggle | ✅ |
-
-### Validasi bisnis (terverifikasi di kode)
-- `skor_min < skor_max` pada rubrik (HTTP 400 bila dilanggar) — `assessment.py`.
-- `bobot_persen` 0–100, indikator total bobot di frontend.
-- University scoping via `_check_course_access()` / `_check_scheme_access()`.
-
-### ERD
-ERD-3 (RPS & Asesmen) cocok 100%: `assessment_schemes`, `assessment_rubrics`, `mbkm_integrations`.
-
-### Gap
-Tidak ada. Week 5 lengkap.
+- **fix(cpl,cpmk)** — tabel kosong saat filter "Semua" (data tampil setelah ditambah)
+- **fix(assessment)** — tambah `GET /mbkm/{id}` (CRUD MBKM konsisten)
+- **feat UC-17f** — filter global periode + peran di analitik
+- **fix instrument** — bereskan 93 → **59 item kanonik** (temuan pengujian)
+- **feat UC-17b/c, UC-18d, UC-19c/d/f** — perbandingan grup, gating data mentah, laporan diperkaya
+- **feat UC-09/10** — Download PDF & Print hasil publik
+- **fix(deploy) CRITICAL** — skema DB reproducible dari nol (`001`+`006`)
+- **feat week1–6** — implementasi seluruh modul inti
+- ...total 50 commit (lihat `git log`).
 
 ---
 
-## Week 6 — Export Data & Laporan Diagnostik
+## 8. Daftar Gap (belum ada) + Rekomendasi
 
-### Cakupan
-Export + laporan diagnostik. Use case: **UC-18**, **UC-19**.
+| Gap | Prioritas | Catatan |
+|-----|-----------|---------|
+| F-05.3 Ringkasan CPMK di hasil publik | Sedang | Perlu diskusi metodologi (survei CIPP ukur dimensi, bukan CPMK langsung) |
+| F-11.5 / UC-02.14 Download PNG/SVG grafik | Rendah | Butuh lib chart-export di frontend |
+| Export PDF analisis (Playwright) / UC-02.15 | Rendah | Butuh browser headless ~400MB; sudah ada Excel/CSV + print |
+| F-09.3 Tag item ke CPL/CPMK/RPS | Rendah | Penyempurnaan instrumen |
+| F-09.4 Versioning item | Rendah | Riwayat perubahan item |
+| F-09.6 Export CSV/template item | Rendah | Pelengkap import yang sudah ada |
+| F-07.3 Filter global univ/prodi | Rendah | Sudah ada MK+peran+periode; univ/prodi relevan utama untuk superadmin |
 
-### Hasil verifikasi
-| Use Case | Status | Catatan |
-|----------|--------|---------|
-| UC-18c Excel/CSV Agregat | ✅ | `/export/scores` |
-| **UC-18d Data Mentah Superadmin-only** | ✅ **Baru** | `/export/responses` & `/respondents` → `require_superadmin` |
-| UC-18a Print-Friendly | ✅ | via `window.print` laporan |
-| **UC-18b PDF (Playwright)** | ⏸️ **Ditunda** | |
-| **UC-18e Download PNG/SVG** | ⏸️ **Ditunda** | |
-| UC-19a Wizard | ✅ | |
-| UC-19b Skor CIPP + interpretasi | ✅ | |
-| **UC-19c RPS & Asesmen Alignment** | ✅ **Baru** | `rps_alignment` di snapshot |
-| **UC-19d Analisis CPL-CPMK** | ✅ **Baru** | `cpl_cpmk_analysis` di snapshot |
-| UC-19e Rekomendasi Dimensi | ✅ | 4-tier |
-| **UC-19f Saran Revisi RPS** | ✅ **Baru** | `rps_suggestions` otomatis |
-| UC-19g Export PDF Laporan | ✅ parsial | via `window.print` → Save as PDF |
-| UC-19h Histori | ✅ | |
-
-### Perbaikan putaran ini
-- **UC-19c/d/f**: `_build_snapshot()` di `report.py` diperkaya 3 helper (`_build_rps_alignment`, `_build_cpl_cpmk_analysis`, `_build_rps_suggestions`), ditampilkan sebagai 3 seksi baru di `DiagnosticPreview.vue`.
-- **UC-18d**: gating superadmin + frontend menyembunyikan kartu data mentah untuk non-superadmin.
-
-### Bug diperbaiki pada review sebelumnya (masih relevan)
-- `export.py`: double JOIN Course yang crash untuk admin/dosen — diperbaiki.
-- `report.py` `list_reports`: logika filter `if/elif/else` diperbaiki.
-- `DiagnosticPreview.vue`: `window.print()` dipindah ke method.
+Tidak ada gap yang menghambat alur evaluasi inti. Semua gap = fitur lanjutan/penyempurnaan.
 
 ---
 
-## Fitur yang Sengaja Ditunda (dengan alasan)
+## 9. Kesimpulan
 
-| Use Case | Alasan penundaan |
-|----------|------------------|
-| **UC-08b** Ringkasan CPMK di hasil publik | Survey CIPP mengukur dimensi B/C/D/E, **bukan** capaian CPMK individual. Memetakan skor CIPP → CPMK akan menghasilkan metrik yang dipaksakan/tidak valid secara metodologis. Lebih jujur tidak menampilkan daripada memfabrikasi angka. |
-| **UC-18b** Export PDF via Playwright (server-side) | Butuh dependency browser headless (~400MB) di container backend. Nilai marginal rendah karena **sudah ada** PDF client-side (hasil publik) + `window.print` (laporan) + Excel/CSV. |
-| **UC-18e** Download grafik PNG/SVG | Butuh render chart ke gambar (canvas/satori). Nilai marginal rendah; data sudah bisa diekspor via Excel/CSV dan laporan bisa dicetak. |
+| Aspek | Skor |
+|-------|------|
+| Kesesuaian ERD | 100% |
+| Alur publik (Flow 1) | 100% |
+| CRUD kurikulum (Flow 2) | 100% |
+| Use Case inti (UC-01, UC-02 utama, UC-03) | ~95% |
+| Feature Breakdown (58 fitur granular) | ~90% |
+| **Pengujian fungsional produksi** | **100% (31/31)** |
 
-> Ketiganya tidak memblokir alur inti dan dapat ditambahkan nanti bila pembimbing memintanya secara eksplisit.
+**Sistem SINOKU telah memenuhi seluruh alur inti evaluasi CIPP** sesuai userflow, use case, dan ERD — dari pengisian kuesioner 59 item (instrumen tervalidasi), kode anonim, hingga analitik dan laporan diagnostik. Gap yang tersisa (~10%) adalah fitur penyempurnaan (export grafik PNG/SVG, PDF server-side, ringkasan CPMK, versioning/tag item) yang **tidak menghambat fungsi utama** dan dapat ditambahkan sesuai kebutuhan sidang.
 
----
-
-## Kesesuaian ERD (ringkas)
-
-| Grup ERD | Tabel | Status |
-|----------|-------|--------|
-| ERD-2 Akademik | universities, programs, courses, cpls, cpmks, 2 mapping | ✅ |
-| ERD-3 RPS & Asesmen | rps_versions, checklist (2), assessment (2), mbkm | ✅ |
-| ERD-4 Instrumen | cipp_dimensions, cipp_sub_dimensions, instrument_items, open_questions | ✅ |
-| ERD-5 Responden | respondents + 6 junction | ✅ |
-| ERD-6 Respons/Auth/Laporan | responses, response_items, response_open_answers, anonymous_codes, users, sessions, diagnostic_reports | ✅ |
-
-**Total 31 tabel — seluruhnya ada di model & kini ada di migrasi 001/003/005.**
+Sistem **layak digunakan untuk pengumpulan dan analisis data evaluasi** mata kuliah Budaya Tiongkok.
 
 ---
 
-## Tindak Lanjut Deploy
-
-```bash
-# Di VPS:
-cd /var/www/sinoku/sinoku
-./scripts/deploy.sh        # pull + build + jalankan migrasi 001→006 (idempotent)
-```
-
-Migrasi `001` & `006` aman untuk VPS lama (semua `IF NOT EXISTS` / guard → no-op) maupun database kosong.
-
----
-
-## Verifikasi Deploy Produksi (13 Juni 2026)
-
-Rantai migrasi `001→006` dijalankan di VPS produksi (database existing, uptime 24 jam) dan **lolos tanpa error**:
-
-| Migrasi | Hasil | Interpretasi |
-|---------|-------|--------------|
-| `001_init_schema` | `CREATE INDEX … COMMIT` | Tabel sudah ada → `IF NOT EXISTS` no-op, index dipastikan. ✅ |
-| `002_dosen_flow` | `DO … COMMIT` | Guard idempotent jalan — constraint sudah ada, di-skip tanpa error. ✅ |
-| `003_rps_tables` | `CREATE TABLE … COMMIT` | ✅ |
-| `004_instrument_seed` | `Open Questions \| 8` | Seed terverifikasi. ✅ |
-| `005_assessment_report` | `NOTICE … already exists, skipping` | Bukan error — index lama dilewati. ✅ |
-| `006_seed_superadmin` | `INSERT 0 0 … COMMIT` | 0 baris masuk = superadmin sudah ada, **tidak ada duplikat**. ✅ |
-
-**Kesimpulan verifikasi:** Idempotensi terbukti di lingkungan produksi. Karena rantai migrasi jalan mulus end-to-end pada database existing, maka pada database kosong pun dijamin berhasil (bedanya hanya `CREATE TABLE` benar-benar membuat tabel dan `006` benar-benar menyisipkan superadmin). **Reproducible deploy tercapai dan tervalidasi.**
-
-Status container pasca-deploy: seluruh service (`db`, `backend`, `frontend`, `nginx`) `Up` & `healthy`, backend siap merespons.
-
-### Pembersihan konfigurasi
-- Atribut `version: "3.9"` yang usang dihapus dari `docker-compose.yml` (Compose v2 mengabaikannya) → warning saat deploy hilang. Sudah ter-deploy ke produksi.
-
----
-
-## Riwayat Perubahan (Putaran Evaluasi Ini)
-
-Urut dari terbaru. Seluruh commit sudah di-push ke `main` & ter-deploy.
-
-| Commit | Jenis | Ringkasan |
-|--------|-------|-----------|
-| `d249791` | chore | Hapus `version` usang di docker-compose + catat verifikasi deploy |
-| `3ed2995` | docs | Laporan evaluasi mendalam per-week + perbaiki tabel migrasi WEEKS.md |
-| `8be9bbf` | feat | **UC-17b** (perbandingan grup), **UC-18d** (superadmin-only), **UC-19c/d/f** (RPS alignment, CPL-CPMK, saran revisi) |
-| `b9d0933` | chore | gitignore `__pycache__` + hapus nama universitas hardcoded di footer |
-| `bfa7559` | feat | **UC-09** Download PDF & **UC-10** Cetak di hasil publik |
-| `d53416d` | fix | **[KRITIS]** Skema database reproducible (`001_init_schema`, `002` idempotent, `006` seed superadmin) |
-| `fe18ec2` | feat | **UC-17a**, **UC-17c**, **UC-15 import CSV** + dokumentasi week |
-
-### Pemetaan ke prioritas perbaikan
-| Prioritas | Isi | Status |
-|-----------|-----|--------|
-| **#1** | Skema database reproducible | ✅ Selesai & tervalidasi produksi |
-| **#2** | Hasil publik: PDF + Cetak | ✅ Selesai |
-| **#3** | UC-17b, UC-18d, UC-19c/d/f | ✅ Selesai |
-| — | UC-08b, UC-18b, UC-18e | ⏸️ Ditunda (alasan teknis di atas) |
-
----
-
-*Catatan: Laporan ini menggantikan klaim "100%" sebelumnya. Angka jujur saat ini ± 95% fungsional dengan deploy yang sudah reproducible & tervalidasi di produksi.*
+*Evaluasi ini menggantikan klaim "100% selesai" sebelumnya dengan angka jujur berbasis verifikasi source code & pengujian produksi.*
