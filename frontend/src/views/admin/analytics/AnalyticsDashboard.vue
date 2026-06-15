@@ -1,7 +1,10 @@
 <template>
   <div>
     <div class="page-header">
-      <h1 class="page-title">Analitik CIPP</h1>
+      <div style="display:flex;align-items:center;gap:12px">
+        <h1 class="page-title">Analitik CIPP</h1>
+        <button class="btn-pdf" @click="exportAnalyticsPdf" title="Unduh laporan analisis PDF">&#128196; PDF Analisis</button>
+      </div>
       <div class="header-filters">
         <template v-if="isSuperadmin">
           <select v-model.number="filters.university_id" @change="onUnivChange" class="filter-select" title="Filter universitas">
@@ -376,6 +379,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { useAuthStore } from '@/stores/auth'
 import { getDashboardKpi, getProblemHeatmap, getCourses, getUniversities, getPrograms, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix, getAnalyticsComparisonGroups } from '@/api/admin'
 
@@ -434,6 +439,43 @@ const loadingGroups = ref(false)
 const groupBy = ref('university')
 const groupsData = ref<any>({ group_by: 'university', dimensions: [], data: [] })
 const radarSvg = ref<SVGSVGElement | null>(null)
+
+// UC-02.15: unduh laporan analisis sebagai PDF (client-side jsPDF)
+function exportAnalyticsPdf() {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const mx = 14
+  let y = 18
+  doc.setFontSize(16); doc.setTextColor(26, 54, 93); doc.setFont('helvetica', 'bold')
+  doc.text('SINOKU — Laporan Analisis CIPP', mx, y); y += 8
+  doc.setFontSize(10); doc.setTextColor(113, 128, 150); doc.setFont('helvetica', 'normal')
+  const filterTxt: string[] = []
+  if (filters.value.course_id) { const c = courses.value.find((x: any) => x.id === filters.value.course_id); filterTxt.push('MK: ' + (c?.kode ?? filters.value.course_id)) }
+  if (filters.value.role) filterTxt.push('Peran: ' + filters.value.role)
+  if (filters.value.periode_start || filters.value.periode_end) filterTxt.push(`Periode: ${filters.value.periode_start || '…'} s/d ${filters.value.periode_end || '…'}`)
+  doc.text(filterTxt.length ? filterTxt.join('  |  ') : 'Semua data', mx, y); y += 6
+  doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), mx, y); y += 8
+
+  // KPI ringkas
+  autoTable(doc, {
+    startY: y,
+    head: [['Total Respons', 'Dosen', 'Mahasiswa', 'Rata-rata CIPP']],
+    body: [[String(kpi.value.total_responses ?? 0), String(kpi.value.total_dosen ?? 0), String(kpi.value.total_mahasiswa ?? 0), (kpi.value.avg_cipp_score ?? 0).toFixed?.(2) ?? '—']],
+    headStyles: { fillColor: [26, 54, 93], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 10, halign: 'center' }, margin: { left: mx, right: mx },
+  })
+
+  // Skor per dimensi
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 8,
+    head: [['Kode', 'Dimensi', 'Rata-rata', 'Std Dev', 'Interpretasi']],
+    body: (kpi.value.cipp_by_dimension ?? []).map((d: any) => [
+      d.kode, d.nama, d.rata_rata?.toFixed(2) ?? '—', d.std_dev?.toFixed(2) ?? '—', interpretasi(d.rata_rata).replace(/[^\x20-\x7E]/g, '').trim(),
+    ]),
+    headStyles: { fillColor: [26, 54, 93], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 10 }, margin: { left: mx, right: mx },
+  })
+  doc.save('SINOKU-Analisis-CIPP.pdf')
+}
 
 // F-11.5: unduh grafik radar sebagai SVG (native) atau PNG (via canvas)
 function downloadChart(format: 'png' | 'svg') {
@@ -628,6 +670,8 @@ onMounted(async () => {
 .chart-dl{display:flex;gap:6px}
 .chart-dl-btn{background:#fff;border:1px solid #cbd5e0;color:#2d3748;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
 .chart-dl-btn:hover{background:#f7fafc;border-color:#a0aec0}
+.btn-pdf{background:#fff;border:1px solid #cbd5e0;color:#1a365d;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-pdf:hover{background:#f7fafc;border-color:#1a365d}
 .filter-select{padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;background:#fff}
 .loading-state{text-align:center;color:#718096;padding:60px;background:#fff;border-radius:10px}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
