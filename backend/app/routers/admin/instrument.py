@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional
@@ -299,6 +300,64 @@ async def toggle_open_question(
     oq.is_active = not oq.is_active
     await db.commit()
     return {"id": oq.id, "kode": oq.kode, "is_active": oq.is_active}
+
+
+_ITEM_CSV_COLS = [
+    "kode", "sub_dimension_id", "nomor_urut", "text_id_dosen", "text_id_mahasiswa",
+    "text_zh_dosen", "text_zh_mahasiswa", "indikator", "answer_type",
+    "scale_min", "scale_max", "is_required",
+]
+
+
+# ── Export Item via CSV / Template (F-09.6) ───────────────────────────────────
+
+@router.get("/items/export")
+async def export_items(
+    template: bool = Query(False, description="True = unduh template kosong (header + 1 contoh)"),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Export seluruh item instrumen ke CSV, atau template kosong bila template=true.
+
+    Format kolom identik dengan endpoint import sehingga hasil export bisa
+    langsung di-edit lalu di-import kembali.
+    """
+    buf = io.StringIO()
+    buf.write("﻿")  # BOM agar Excel membaca UTF-8 (karakter Mandarin) dengan benar
+    w = csv.DictWriter(buf, fieldnames=_ITEM_CSV_COLS)
+    w.writeheader()
+
+    if template:
+        w.writerow({
+            "kode": "CD1.1", "sub_dimension_id": 1, "nomor_urut": 1,
+            "text_id_dosen": "Contoh pernyataan untuk dosen",
+            "text_id_mahasiswa": "Contoh pernyataan untuk mahasiswa",
+            "text_zh_dosen": "教师示例", "text_zh_mahasiswa": "学生示例",
+            "indikator": "Contoh indikator", "answer_type": "likert",
+            "scale_min": 1, "scale_max": 5, "is_required": "true",
+        })
+        filename = "template_item_instrumen.csv"
+    else:
+        items = (await db.execute(
+            select(InstrumentItem).order_by(InstrumentItem.sub_dimension_id, InstrumentItem.nomor_urut)
+        )).scalars().all()
+        for it in items:
+            w.writerow({
+                "kode": it.kode, "sub_dimension_id": it.sub_dimension_id, "nomor_urut": it.nomor_urut,
+                "text_id_dosen": it.text_id_dosen, "text_id_mahasiswa": it.text_id_mahasiswa,
+                "text_zh_dosen": it.text_zh_dosen, "text_zh_mahasiswa": it.text_zh_mahasiswa,
+                "indikator": it.indikator or "", "answer_type": it.answer_type,
+                "scale_min": it.scale_min, "scale_max": it.scale_max,
+                "is_required": str(it.is_required).lower(),
+            })
+        filename = "item_instrumen.csv"
+
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Import Item via CSV (UC-15) ───────────────────────────────────────────────

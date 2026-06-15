@@ -73,6 +73,8 @@ export const importInstrumentItems = (file: File) => {
   form.append('file', file)
   return api.post('/admin/instruments/items/import', form, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
+export const exportInstrumentItems = (template = false) =>
+  api.get('/admin/instruments/items/export', { params: { template }, responseType: 'blob' })
 export const getOpenQuestions = () => api.get('/admin/instruments/open-questions')
 export const createOpenQuestion = (data: object) => api.post('/admin/instruments/open-questions', data)
 export const updateOpenQuestion = (id: number, data: object) => api.put(`/admin/instruments/open-questions/${id}`, data)

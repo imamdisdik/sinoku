@@ -49,6 +49,8 @@
               </div>
             </div>
             <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary" @click="doExport(true)" title="Unduh template CSV kosong">&#128196; Template</button>
+              <button class="btn btn-secondary" @click="doExport(false)" title="Export semua item ke CSV">&#11123; Export CSV</button>
               <button class="btn btn-secondary" @click="triggerImport">&#8645; Import CSV</button>
               <input ref="importInputRef" type="file" accept=".csv" style="display:none" @change="doImport" />
               <button class="btn btn-primary" @click="openCreate">+ Tambah Item</button>
@@ -248,7 +250,7 @@ import {
   getInstrumentDimensions, getInstrumentItems,
   createInstrumentItem, updateInstrumentItem, toggleInstrumentItem,
   getOpenQuestions, createOpenQuestion, updateOpenQuestion, toggleOpenQuestion,
-  importInstrumentItems,
+  importInstrumentItems, exportInstrumentItems,
 } from '@/api/admin'
 import { useUiStore } from '@/stores/ui'
 const ui = useUiStore()
@@ -274,6 +276,20 @@ function subDimLabel(sdId: number) {
 
 function triggerImport() {
   importInputRef.value?.click()
+}
+async function doExport(template: boolean) {
+  try {
+    const res = await exportInstrumentItems(template)
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = template ? 'template_item_instrumen.csv' : 'item_instrumen.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+    ui.showToast(template ? 'Template diunduh' : 'Item berhasil diexport', 'success')
+  } catch {
+    ui.showToast('Gagal export item', 'error')
+  }
 }
 async function doImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
