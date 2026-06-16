@@ -382,7 +382,9 @@ async def export_items(
         filename = "template_item_instrumen.csv"
     else:
         items = (await db.execute(
-            select(InstrumentItem).order_by(InstrumentItem.sub_dimension_id, InstrumentItem.nomor_urut)
+            select(InstrumentItem)
+            .where(InstrumentItem.is_active == True)
+            .order_by(InstrumentItem.sub_dimension_id, InstrumentItem.nomor_urut)
         )).scalars().all()
         for it in items:
             w.writerow({
