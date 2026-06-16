@@ -200,4 +200,37 @@
 
 ---
 
+## Hasil Pengujian Live (16 Juni 2026, via browser otomatis)
+
+Pengujian UI nyata dijalankan langsung ke produksi dengan **data dummy lengkap** (15 respons, 4 CPL, 4 CPMK + mapping, RPS, 3 skema + rubrik, 2 MBKM, 2 laporan diagnostik).
+
+| Area | Hasil | Bukti |
+|------|-------|-------|
+| Landing (hero, CIPP, toggle ID/中文) | ✅ | render benar |
+| Login admin | ✅ | masuk dashboard |
+| Dashboard KPI (berdata) | ✅ | 15 respons, CIPP 4.17 |
+| **CPL — fix tampilan "Semua Prodi"** | ✅ | CPL tampil (sebelumnya kosong) |
+| Analitik — filter univ/prodi/peran/periode (F-07.3, UC-17f) | ✅ | semua selektor render |
+| Analitik — radar CIPP | ✅ | chart render |
+| 🆕 Radar **PNG** (F-11.5) | ✅ | `radar-cipp.png` (37 KB) terunduh |
+| 🆕 Radar **SVG** (F-11.5) | ✅ | unduhan ter-trigger |
+| 🆕 **PDF Analisis** (UC-02.15) | ✅ | blob PDF dibuat |
+| 🆕 Laporan: **RPS Alignment** (UC-19c) | ✅ | Status RPS aktif, checklist |
+| 🆕 Laporan: **Analisis CPL-CPMK** (UC-19d) | ✅ | cakupan 100% (4/4) |
+| 🆕 Laporan: **Saran Revisi RPS** (UC-19f) | ✅ | saran otomatis tampil |
+| Hasil publik: PDF & Cetak (UC-09/10) | ✅ | tombol render, PDF ter-trigger |
+| 🆕 Hasil publik: **Capaian Pembelajaran** (F-05.3) | ✅ | tabel E.1–E.4, status Tercapai |
+| 🆕 Instrumen: **Export CSV + Template** (F-09.6) | ✅ | `item_instrumen.csv` + template terunduh |
+| 🆕 Instrumen: **Riwayat item** (F-09.4) | ✅ | edit → history tercatat (verifikasi API) |
+
+### Bug ditemukan & diperbaiki saat pengujian UI
+1. **`GET /admin/rps/{id}/checklist` → HTTP 500** — schema `ChecklistResponseOut.item` vs relasi model `checklist_item` tidak cocok → Pydantic gagal. **Diperbaiki** (commit `98b5a74`). *Perlu deploy.*
+2. **Export item CSV menyertakan 35 item nonaktif** (94 baris, bukan 59) — ditambah filter `is_active`. **Diperbaiki** (commit `f6c0079`). *Perlu deploy.*
+
+### Catatan
+- 35 item instrumen nonaktif (sisa seed lama) masih ada di DB — tidak mengganggu survei/analitik (hanya pakai 59 aktif), tapi sebaiknya dihapus permanen.
+- Beberapa unduhan (PDF/PNG/SVG) tertahan Chrome sebagai `.crdownload` (setelan browser "tanya lokasi simpan"/konfirmasi) — bukan bug aplikasi; CSV terunduh bersih.
+
+---
+
 *Item bertanda 🆕 adalah fitur hasil penutupan gap (15 Juni 2026) yang sebaiknya diuji dengan teliti.*
