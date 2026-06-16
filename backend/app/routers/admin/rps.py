@@ -61,7 +61,7 @@ class ChecklistResponseOut(BaseModel):
     is_fulfilled: bool
     catatan: Optional[str] = None
     checked_at: Optional[datetime] = None
-    item: ChecklistItemOut
+    checklist_item: ChecklistItemOut  # cocok dgn relasi model & frontend (item.checklist_item.kode)
     model_config = {"from_attributes": True}
 
 
@@ -212,10 +212,10 @@ async def get_checklist(
             )
             db.add(resp)
             await db.flush()
-            resp.item = item  # field schema bernama 'item' (bukan relasi 'checklist_item')
+            resp.checklist_item = item
             result.append(resp)
         else:
-            existing_map[item.id].item = item
+            existing_map[item.id].checklist_item = item
             result.append(existing_map[item.id])
 
     await db.commit()
@@ -248,5 +248,5 @@ async def update_checklist_item(
     await db.refresh(resp)
 
     checklist_item = await db.get(RpsChecklistItem, item_id)
-    resp.item = checklist_item  # field schema bernama 'item'
+    resp.checklist_item = checklist_item
     return resp
