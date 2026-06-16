@@ -212,10 +212,10 @@ async def get_checklist(
             )
             db.add(resp)
             await db.flush()
-            resp.checklist_item = item
+            resp.item = item  # field schema bernama 'item' (bukan relasi 'checklist_item')
             result.append(resp)
         else:
-            existing_map[item.id].checklist_item = item
+            existing_map[item.id].item = item
             result.append(existing_map[item.id])
 
     await db.commit()
@@ -248,5 +248,5 @@ async def update_checklist_item(
     await db.refresh(resp)
 
     checklist_item = await db.get(RpsChecklistItem, item_id)
-    resp.checklist_item = checklist_item
+    resp.item = checklist_item  # field schema bernama 'item'
     return resp
