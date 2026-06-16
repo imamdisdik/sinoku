@@ -222,10 +222,14 @@ Pengujian UI nyata dijalankan langsung ke produksi dengan **data dummy lengkap**
 | 🆕 Hasil publik: **Capaian Pembelajaran** (F-05.3) | ✅ | tabel E.1–E.4, status Tercapai |
 | 🆕 Instrumen: **Export CSV + Template** (F-09.6) | ✅ | `item_instrumen.csv` + template terunduh |
 | 🆕 Instrumen: **Riwayat item** (F-09.4) | ✅ | edit → history tercatat (verifikasi API) |
+| **MBKM** (list seeding) | ✅ | 2 entri (Magang, Pertukaran Pelajar) |
+| **Perbandingan Univ/Prodi/MK** (UC-17b) | ✅ | tabel: UAI 15 respons, skor per dimensi |
+| 8 tab analitik (dropdown) | ✅ | semua tab render |
 
 ### Bug ditemukan & diperbaiki saat pengujian UI
-1. **`GET /admin/rps/{id}/checklist` → HTTP 500** — schema `ChecklistResponseOut.item` vs relasi model `checklist_item` tidak cocok → Pydantic gagal. **Diperbaiki** (commit `98b5a74`). *Perlu deploy.*
-2. **Export item CSV menyertakan 35 item nonaktif** (94 baris, bukan 59) — ditambah filter `is_active`. **Diperbaiki** (commit `f6c0079`). *Perlu deploy.*
+1. **`GET /admin/rps/{id}/checklist` → HTTP 500** — schema `ChecklistResponseOut.item` vs relasi model `checklist_item` tidak cocok → Pydantic gagal. (commit `98b5a74`)
+2. **Export item CSV menyertakan 35 item nonaktif** (94 baris, bukan 59) — ditambah filter `is_active`. **Diperbaiki & terverifikasi** (commit `f6c0079`, export kini 60 baris).
+3. **`RpsChecklist.vue` crash** — frontend baca `item.checklist_item.kode` tapi schema menamai field `item` → root-cause: field schema diganti ke `checklist_item` agar selaras model + frontend. **Diperbaiki** (commit `73f4af9`). *Perlu deploy.*
 
 ### Catatan
 - 35 item instrumen nonaktif (sisa seed lama) masih ada di DB — tidak mengganggu survei/analitik (hanya pakai 59 aktif), tapi sebaiknya dihapus permanen.
