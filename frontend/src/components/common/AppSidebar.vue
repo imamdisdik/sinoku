@@ -26,7 +26,8 @@
         <span class="nav-group-label" v-show="!ui.sidebarCollapsed">{{ grp.label }}</span>
         <router-link
           v-for="it in grp.items" :key="it.to"
-          :to="it.to" class="nav-item" :title="ui.sidebarCollapsed ? it.text : ''"
+          :to="it.to" class="nav-item" :class="{ active: isActive(it.to, it.exact) }"
+          :title="ui.sidebarCollapsed ? it.text : ''"
           @click="ui.closeSidebarMobile()"
         >
           <span class="ni-icon">{{ it.icon }}</span>
@@ -48,16 +49,22 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const auth = useAuthStore()
 const ui = useUiStore()
 const { user, isDosen } = storeToRefs(auth)
 const router = useRouter()
+const route = useRoute()
+
+// Active: Dashboard (exact) hanya di /admin; lainnya termasuk sub-rute (mis. /admin/reports/123)
+function isActive(to: string, exact?: boolean) {
+  return exact ? route.path === to : route.path === to || route.path.startsWith(to + '/')
+}
 
 const groups = computed(() => {
-  const g: { label: string; items: { to: string; icon: string; text: string }[] }[] = [
-    { label: 'Utama', items: [{ to: '/admin', icon: '▦', text: 'Dashboard' }] },
+  const g: { label: string; items: { to: string; icon: string; text: string; exact?: boolean }[] }[] = [
+    { label: 'Utama', items: [{ to: '/admin', icon: '▦', text: 'Dashboard', exact: true }] },
     {
       label: 'Akademik',
       items: [
@@ -170,7 +177,7 @@ async function doLogout() {
 .sidebar.collapsed .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
 .ni-icon { width: 20px; text-align: center; flex-shrink: 0; font-size: 14px; }
 .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.nav-item.router-link-active { background: rgba(99,179,237,0.18); color: #fff; border-left-color: #63b3ed; }
+.nav-item.active { background: rgba(99,179,237,0.18); color: #fff; border-left-color: #63b3ed; }
 
 .sidebar-footer { padding: 14px; border-top: 1px solid rgba(255,255,255,0.1); }
 .logout-btn {
