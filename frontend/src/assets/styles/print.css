@@ -1,6 +1,13 @@
 @media print {
-  .no-print, nav, .sidebar, .btn, footer { display: none !important; }
-  body { background: #fff; font-size: 11pt; }
-  .card { box-shadow: none; border: 1px solid #e2e8f0; }
-  @page { size: A4; margin: 20mm; }
+  /* Sembunyikan elemen chrome (sidebar, navbar, footer, tombol, elemen .no-print) */
+  .no-print, nav, .sidebar, footer { display: none !important; }
+
+  /* Konten admin: hilangkan ruang sidebar & padding agar memenuhi halaman */
+  .admin-main { margin-left: 0 !important; padding: 0 !important; }
+  .admin-layout { display: block !important; }
+
+  body { background: #fff !important; font-size: 11pt; }
+  .card { box-shadow: none !important; border: 1px solid #e2e8f0; }
+
+  @page { size: A4; margin: 14mm; }
 }
