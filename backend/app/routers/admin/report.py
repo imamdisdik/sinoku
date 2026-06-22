@@ -389,6 +389,103 @@ async def generate_report(
     }
 
 
+@router.get("/template-data")
+async def template_report_data(
+    course_id: int,
+    periode_start: date,
+    periode_end: date,
+    role: str = "semua",  # mahasiswa | dosen | semua
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Data laporan format Template CIPP (A. Identitas, B. 15 subdimensi, C. indikator detail,
+    D. interpretasi) untuk satu MK + periode + peran. Skor Likert dikonversi ke persen."""
+    course = await db.get(Course, course_id)
+    if not course:
+        raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    program = await db.get(Program, course.program_id)
+    university = await db.get(University, program.university_id) if program else None
+    if current_user.role in ("admin", "dosen") and current_user.university_id:
+        if not program or program.university_id != current_user.university_id:
+            raise HTTPException(403, "Akses ditolak")
+
+    # Respons selesai dalam periode, difilter peran
+    q = select(Response).where(
+        Response.course_id == course_id,
+        Response.is_complete == True,
+        Response.submitted_at >= datetime.combine(periode_start, datetime.min.time()),
+        Response.submitted_at <= datetime.combine(periode_end, datetime.max.time()),
+    )
+    if role in ("mahasiswa", "dosen"):
+        q = q.where(Response.role == role)
+    responses = (await db.execute(q)).scalars().all()
+    resp_ids = [r.id for r in responses]
+
+    # Index skor item
+    score_index: dict = {}
+    if resp_ids:
+        for item_id, skor in (await db.execute(
+            select(ResponseItem.item_id, ResponseItem.skor).where(ResponseItem.response_id.in_(resp_ids))
+        )).all():
+            score_index.setdefault(item_id, []).append(skor)
+
+    def pct(item_ids):
+        vals = [s for iid in item_ids for s in score_index.get(iid, [])]
+        return (round(sum(vals) / len(vals) / 5 * 100, 1), len(vals)) if vals else (None, 0)
+
+    # Dimensi → subdimensi → item
+    dims = (await db.execute(select(CippDimension).order_by(CippDimension.urutan))).scalars().all()
+    subdimensi, indikator = [], []
+    for dim in dims:
+        subs = (await db.execute(
+            select(CippSubDimension).where(CippSubDimension.dimension_id == dim.id).order_by(CippSubDimension.urutan)
+        )).scalars().all()
+        for sd in subs:
+            items = (await db.execute(
+                select(InstrumentItem).where(
+                    InstrumentItem.sub_dimension_id == sd.id, InstrumentItem.is_active == True
+                ).order_by(InstrumentItem.nomor_urut)
+            )).scalars().all()
+            sd_pct, sd_n = pct([it.id for it in items])
+            subdimensi.append({
+                "kode": sd.kode, "dimensi": dim.nama_id, "dimensi_kode": dim.kode,
+                "nama": sd.nama_id, "persen": sd_pct, "n": sd_n,
+            })
+            for it in items:
+                it_pct, it_n = pct([it.id])
+                indikator.append({
+                    "kode": it.kode, "subdim_kode": sd.kode,
+                    "indikator": it.indikator or it.text_id_dosen[:50],
+                    "persen": it_pct, "n": it_n,
+                })
+
+    # D. Interpretasi otomatis
+    scored = [s for s in subdimensi if s["persen"] is not None]
+    kekuatan = [f"{s['nama']} ({s['persen']}%)" for s in sorted(scored, key=lambda x: -x["persen"])[:3]]
+    kelemahan = [f"{s['nama']} ({s['persen']}%)" for s in sorted(scored, key=lambda x: x["persen"])[:3]]
+    rekomendasi = [
+        f"Tingkatkan aspek '{s['nama']}' yang masih {s['persen']}% melalui evaluasi dan perbaikan terarah."
+        for s in sorted(scored, key=lambda x: x["persen"])[:3] if s["persen"] < 75
+    ] or ["Pertahankan kualitas seluruh aspek yang sudah baik dan lakukan monitoring berkala."]
+
+    role_label = {"mahasiswa": "Mahasiswa", "dosen": "Dosen", "semua": "Mahasiswa & Dosen"}.get(role, "Semua")
+    return {
+        "identitas": {
+            "universitas": university.nama if university else "-",
+            "program_studi": program.nama if program else "-",
+            "mata_kuliah": f"{course.kode_mk} — {course.nama_id}",
+            "semester": course.semester,
+            "jumlah_sks": course.sks,
+            "periode": f"{periode_start.isoformat()} s/d {periode_end.isoformat()}",
+            "peran_responden": role_label,
+            "jumlah_responden": len(responses),
+        },
+        "subdimensi": subdimensi,
+        "indikator": indikator,
+        "interpretasi": {"kekuatan": kekuatan, "kelemahan": kelemahan, "rekomendasi": rekomendasi},
+    }
+
+
 @router.get("/{report_id}")
 async def get_report(
     report_id: str,
