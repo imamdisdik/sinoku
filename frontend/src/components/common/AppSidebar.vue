@@ -125,10 +125,11 @@ async function doLogout() {
 
 <style scoped>
 .sidebar {
-  width: 220px; min-height: 100vh; background: #1a365d;
+  width: 220px; height: 100vh; background: #1a365d;
   display: flex; flex-direction: column; position: fixed; top: 0; left: 0; z-index: 100;
   transition: width .2s ease, transform .25s ease;
 }
+.sidebar-logo, .sidebar-user, .sidebar-footer { flex-shrink: 0; }
 .sidebar.collapsed { width: 64px; }
 
 .sidebar-logo {
