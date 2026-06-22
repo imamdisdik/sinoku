@@ -128,4 +128,5 @@ export const exportCsvWithAuth = (path: string, params?: Record<string, any>) =>
 export const getReports = (params?: object) => api.get('/admin/reports', { params })
 export const generateReport = (data: object) => api.post('/admin/reports', data)
 export const getReport = (id: string) => api.get(`/admin/reports/${id}`)
+export const getTemplateReportData = (params: object) => api.get('/admin/reports/template-data', { params })
 export const deleteReport = (id: string) => api.delete(`/admin/reports/${id}`)
