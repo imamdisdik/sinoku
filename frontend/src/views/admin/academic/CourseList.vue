@@ -129,7 +129,7 @@
     <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm = false">
       <div class="modal modal-sm">
         <h2 class="modal-title">Hapus Mata Kuliah?</h2>
-        <p class="confirm-text">Yakin hapus <strong>{{ deleteTarget?.nama_id }}</strong>? Semua CPMK dan mapping CPL akan ikut terhapus.</p>
+        <p class="confirm-text">Yakin hapus <strong>{{ deleteTarget?.nama_id }}</strong>?<br>⚠️ Seluruh data terkait akan <strong>ikut terhapus permanen</strong>: CPMK &amp; mapping CPL, RPS &amp; checklist, skema/rubrik, MBKM, serta <strong>respons evaluasi, kode anonim, dan laporan diagnostik</strong> mata kuliah ini.</p>
         <div class="modal-actions">
           <button class="btn-cancel" @click="showConfirm = false">Batal</button>
           <button class="btn-delete" @click="doDelete" :disabled="saving">Hapus</button>

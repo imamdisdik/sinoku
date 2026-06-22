@@ -211,20 +211,12 @@ async def delete_course(cid: int, db: AsyncSession = Depends(get_db), _=Depends(
     c = await db.get(Course, cid)
     if not c:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
-    # Cek dependensi yang dilindungi (ON DELETE RESTRICT): respons evaluasi & laporan
-    n_resp = (await db.execute(
-        select(func.count()).select_from(Response).where(Response.course_id == cid)
-    )).scalar()
-    n_rep = (await db.execute(
-        select(func.count()).select_from(DiagnosticReport).where(DiagnosticReport.course_id == cid)
-    )).scalar()
-    if n_resp or n_rep:
-        raise HTTPException(
-            400,
-            f"Mata kuliah tidak dapat dihapus karena masih memiliki {n_resp} respons evaluasi "
-            f"dan {n_rep} laporan diagnostik. Hapus data terkait terlebih dahulu, atau nonaktifkan "
-            f"mata kuliah (ubah status menjadi tidak aktif).",
-        )
+    # Hapus dependensi ber-FK RESTRICT secara manual agar MK bisa dihapus.
+    # Laporan diagnostik & respons evaluasi (respons cascade ke response_items,
+    # response_open_answers, anonymous_codes lewat ON DELETE CASCADE di DB).
+    await db.execute(delete(DiagnosticReport).where(DiagnosticReport.course_id == cid))
+    await db.execute(delete(Response).where(Response.course_id == cid))
+    # MK dihapus → cpmks, rps, assessment_schemes, mbkm, mapping ikut via CASCADE.
     await db.delete(c)
     await db.commit()
 
