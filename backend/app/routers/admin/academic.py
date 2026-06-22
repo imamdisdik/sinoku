@@ -5,6 +5,8 @@ from typing import Optional
 from app.database import get_db
 from app.dependencies import require_admin, require_superadmin
 from app.models.academic import University, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping
+from app.models.response import Response
+from app.models.report import DiagnosticReport
 from app.schemas.academic import (
     UniversityCreate, UniversityUpdate, UniversityOut, PagedUniversity,
     ProgramCreate, ProgramUpdate, ProgramOut, PagedProgram,
@@ -209,6 +211,20 @@ async def delete_course(cid: int, db: AsyncSession = Depends(get_db), _=Depends(
     c = await db.get(Course, cid)
     if not c:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    # Cek dependensi yang dilindungi (ON DELETE RESTRICT): respons evaluasi & laporan
+    n_resp = (await db.execute(
+        select(func.count()).select_from(Response).where(Response.course_id == cid)
+    )).scalar()
+    n_rep = (await db.execute(
+        select(func.count()).select_from(DiagnosticReport).where(DiagnosticReport.course_id == cid)
+    )).scalar()
+    if n_resp or n_rep:
+        raise HTTPException(
+            400,
+            f"Mata kuliah tidak dapat dihapus karena masih memiliki {n_resp} respons evaluasi "
+            f"dan {n_rep} laporan diagnostik. Hapus data terkait terlebih dahulu, atau nonaktifkan "
+            f"mata kuliah (ubah status menjadi tidak aktif).",
+        )
     await db.delete(c)
     await db.commit()
 
