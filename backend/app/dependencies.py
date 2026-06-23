@@ -33,8 +33,16 @@ async def get_current_user(
     return user
 
 
+# ── Kelompok peran (5 aktor) ─────────────────────────────────────────────────
+# superadmin | admin_universitas | admin_fakultas | admin_prodi | dosen
+ADMIN_ROLES = ("admin_universitas", "admin_fakultas", "admin_prodi")
+MANAGER_ROLES = ("superadmin",) + ADMIN_ROLES          # boleh mengelola (tanpa dosen)
+STAFF_ROLES = MANAGER_ROLES + ("dosen",)               # semua peran login
+
+
 def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role not in ("superadmin", "admin", "dosen"):
+    """Semua peran login (lihat/baca + RPS)."""
+    if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
     return user
 
@@ -46,7 +54,8 @@ def require_superadmin(user: User = Depends(get_current_user)) -> User:
 
 
 def require_superadmin_or_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role not in ("superadmin", "admin"):
+    """Peran pengelola: superadmin + semua tingkat admin (tanpa dosen)."""
+    if user.role not in MANAGER_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
     return user
 
@@ -69,9 +78,54 @@ async def get_optional_user(
         return None
 
 
-def apply_university_scope(query, user: User):
-    """Terapkan filter university_id berdasarkan role."""
-    from app.models.academic import Program, Course
-    if user.role in ("admin", "dosen") and user.university_id:
-        return query, user.university_id
-    return query, None
+def is_scoped(user: User) -> bool:
+    """True jika peran dibatasi cakupan (semua kecuali superadmin)."""
+    return user.role != "superadmin"
+
+
+def program_scope_condition(user: User):
+    """
+    Kondisi SQLAlchemy pada tabel Program sesuai cakupan peran. Pakai pada query
+    yang sudah/akan men-join Program:
+      - superadmin       → semua
+      - admin_universitas→ Program.university_id == user.university_id
+      - admin_fakultas   → Program.faculty_id   == user.faculty_id
+      - admin_prodi/dosen→ Program.id           == user.program_id
+    Tanpa scope yang valid → tidak ada akses (false()).
+    """
+    from app.models.academic import Program
+    from sqlalchemy import true, false
+    if user.role == "superadmin":
+        return true()
+    if user.role == "admin_universitas":
+        return Program.university_id == user.university_id if user.university_id else false()
+    if user.role == "admin_fakultas":
+        return Program.faculty_id == user.faculty_id if user.faculty_id else false()
+    if user.role in ("admin_prodi", "dosen"):
+        return Program.id == user.program_id if user.program_id else false()
+    return false()
+
+
+def program_in_scope(user: User, program) -> bool:
+    """Cek apakah objek Program berada dalam cakupan user (untuk validasi tulis)."""
+    if user.role == "superadmin":
+        return True
+    if user.role == "admin_universitas":
+        return bool(user.university_id) and program.university_id == user.university_id
+    if user.role == "admin_fakultas":
+        return bool(user.faculty_id) and program.faculty_id == user.faculty_id
+    if user.role in ("admin_prodi", "dosen"):
+        return bool(user.program_id) and program.id == user.program_id
+    return False
+
+
+async def assert_program_in_scope(db, user: User, program_id: int):
+    """Pastikan user boleh menulis pada program_id; jika tidak → 403/404."""
+    if user.role == "superadmin":
+        return
+    from app.models.academic import Program
+    program = await db.get(Program, program_id)
+    if not program:
+        raise HTTPException(status_code=404, detail="Program tidak ditemukan")
+    if not program_in_scope(user, program):
+        raise HTTPException(status_code=403, detail="Di luar cakupan Anda")

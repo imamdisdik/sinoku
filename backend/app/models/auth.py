@@ -13,8 +13,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
-    role: Mapped[str] = mapped_column(String(20), nullable=False)  # superadmin | admin | dosen
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # superadmin | admin_universitas | admin_fakultas | admin_prodi | dosen
     university_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("universities.id", ondelete="SET NULL"), nullable=True)
+    faculty_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("faculties.id", ondelete="SET NULL"), nullable=True)
     program_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("programs.id", ondelete="SET NULL"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

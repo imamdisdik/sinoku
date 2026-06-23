@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from typing import Optional, Sequence
 from datetime import date
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, is_scoped, program_scope_condition
 from app.models.auth import User
 from app.models.response import Response, ResponseItem
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem
@@ -34,16 +34,14 @@ def _base_response_ids_query(
     if periode_end:
         q = q.where(func.date(Response.submitted_at) <= periode_end)
 
-    # F-07.3: filter global univ/prodi (untuk superadmin) + scoping admin/dosen.
-    scoped = current_user.role in ("admin", "dosen") and current_user.university_id
+    # F-07.3: filter global univ/prodi (untuk superadmin) + scoping per peran.
+    scoped = is_scoped(current_user)
     if scoped or university_id or program_id:
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
         )
         if scoped:
-            q = q.where(Program.university_id == current_user.university_id)
-            if current_user.role == "dosen" and current_user.program_id:
-                q = q.where(Course.program_id == current_user.program_id)
+            q = q.where(program_scope_condition(current_user))
         if university_id:
             q = q.where(Program.university_id == university_id)
         if program_id:
@@ -216,23 +214,27 @@ async def comparison_groups(
     for dim in dims:
         dim_items[dim.kode] = await _get_item_ids_for_dim(db, dim.id)
 
-    # Tentukan daftar grup sesuai scoping
-    scoped_univ = current_user.university_id if current_user.role in ("admin", "dosen") else None
+    # Tentukan daftar grup sesuai scoping per peran
+    scoped = is_scoped(current_user)
 
     if group_by == "university":
         q = select(University)
-        if scoped_univ:
-            q = q.where(University.id == scoped_univ)
+        if scoped and current_user.university_id:
+            q = q.where(University.id == current_user.university_id)
+        elif scoped and current_user.program_id:
+            q = q.where(University.id == select(Program.university_id).where(Program.id == current_user.program_id).scalar_subquery())
+        elif scoped:
+            q = q.where(University.id == -1)
         groups = [(u.id, u.nama_singkat or u.nama) for u in (await db.execute(q.order_by(University.nama))).scalars().all()]
     elif group_by == "program":
         q = select(Program)
-        if scoped_univ:
-            q = q.where(Program.university_id == scoped_univ)
+        if scoped:
+            q = q.where(program_scope_condition(current_user))
         groups = [(p.id, p.nama_singkat or p.nama) for p in (await db.execute(q.order_by(Program.nama))).scalars().all()]
     else:  # course
         q = select(Course)
-        if scoped_univ:
-            q = q.join(Program, Course.program_id == Program.id).where(Program.university_id == scoped_univ)
+        if scoped:
+            q = q.join(Program, Course.program_id == Program.id).where(program_scope_condition(current_user))
         groups = [(c.id, c.kode_mk) for c in (await db.execute(q.order_by(Course.kode_mk))).scalars().all()]
 
     def _group_response_ids_query(group_id: int):

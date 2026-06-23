@@ -17,10 +17,20 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(localStorage.getItem('access_token'))
   const refreshToken = ref<string | null>(localStorage.getItem('refresh_token'))
 
+  const STAFF = ['superadmin', 'admin_universitas', 'admin_fakultas', 'admin_prodi', 'dosen']
+  const MANAGERS = ['superadmin', 'admin_universitas', 'admin_fakultas', 'admin_prodi']
+
   const isLoggedIn = computed(() => !!accessToken.value && !!user.value)
-  const isAdmin = computed(() => ['superadmin', 'admin', 'dosen'].includes(user.value?.role ?? ''))
-  const isSuperadmin = computed(() => user.value?.role === 'superadmin')
-  const isDosen = computed(() => user.value?.role === 'dosen')
+  const role = computed(() => user.value?.role ?? '')
+  // isAdmin = punya akses area /admin (semua peran login)
+  const isAdmin = computed(() => STAFF.includes(role.value))
+  const isSuperadmin = computed(() => role.value === 'superadmin')
+  const isAdminUniversitas = computed(() => role.value === 'admin_universitas')
+  const isAdminFakultas = computed(() => role.value === 'admin_fakultas')
+  const isAdminProdi = computed(() => role.value === 'admin_prodi')
+  const isDosen = computed(() => role.value === 'dosen')
+  // isManager = boleh mengelola data (semua admin + superadmin, tanpa dosen)
+  const isManager = computed(() => MANAGERS.includes(role.value))
 
   async function login(email: string, password: string) {
     const { data } = await authApi.login(email, password)
@@ -55,7 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, accessToken, refreshToken,
-    isLoggedIn, isAdmin, isSuperadmin, isDosen,
+    isLoggedIn, role, isAdmin, isSuperadmin, isAdminUniversitas, isAdminFakultas, isAdminProdi, isDosen, isManager,
     login, logout, refreshAccessToken,
   }
 })

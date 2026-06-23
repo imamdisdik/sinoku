@@ -53,7 +53,7 @@ import { useRouter, useRoute } from 'vue-router'
 
 const auth = useAuthStore()
 const ui = useUiStore()
-const { user, isDosen } = storeToRefs(auth)
+const { user, role } = storeToRefs(auth)
 const router = useRouter()
 const route = useRoute()
 
@@ -62,50 +62,54 @@ function isActive(to: string, exact?: boolean) {
   return exact ? route.path === to : route.path === to || route.path.startsWith(to + '/')
 }
 
+// Konstanta kelompok peran
+const STAFF = ['superadmin', 'admin_universitas', 'admin_fakultas', 'admin_prodi', 'dosen']
+const MANAGERS = ['superadmin', 'admin_universitas', 'admin_fakultas', 'admin_prodi']
+const ATAS = ['superadmin', 'admin_universitas', 'admin_fakultas', 'admin_prodi']
+
+// Definisi menu lengkap + peran yang boleh melihatnya
+type NavItem = { to: string; icon: string; text: string; exact?: boolean; roles: string[] }
+const ALL_GROUPS: { label: string; items: NavItem[] }[] = [
+  { label: 'Utama', items: [
+    { to: '/admin', icon: '▦', text: 'Dashboard', exact: true, roles: STAFF },
+  ]},
+  { label: 'Akademik', items: [
+    { to: '/admin/universities', icon: '🏫', text: 'Universitas', roles: ['superadmin'] },
+    { to: '/admin/faculties', icon: '🏛️', text: 'Fakultas', roles: ['superadmin', 'admin_universitas'] },
+    { to: '/admin/programs', icon: '📚', text: 'Program Studi', roles: ['superadmin', 'admin_universitas', 'admin_fakultas'] },
+    { to: '/admin/courses', icon: '📖', text: 'Mata Kuliah', roles: ATAS },
+    { to: '/admin/cpls', icon: '🎯', text: 'CPL', roles: ['superadmin', 'admin_prodi'] },
+    { to: '/admin/cpmks', icon: '🎓', text: 'CPMK', roles: ['superadmin', 'admin_prodi'] },
+  ]},
+  { label: 'Evaluasi', items: [
+    { to: '/admin/instruments', icon: '📋', text: 'Instrumen', roles: ['superadmin', 'admin_prodi'] },
+    { to: '/admin/anonymous-codes', icon: '🔑', text: 'Kode Anonim', roles: ATAS },
+    { to: '/admin/analytics', icon: '📊', text: 'Analitik', roles: STAFF },
+  ]},
+  { label: 'Penilaian', items: [
+    { to: '/admin/assessment/schemes', icon: '⚖️', text: 'Skema Penilaian', roles: ['superadmin', 'admin_prodi'] },
+    { to: '/admin/assessment/rubrics', icon: '📝', text: 'Rubrik', roles: ['superadmin', 'admin_prodi'] },
+    { to: '/admin/assessment/mbkm', icon: '🌐', text: 'MBKM', roles: ['superadmin', 'admin_prodi'] },
+  ]},
+  { label: 'RPS & Laporan', items: [
+    { to: '/admin/rps', icon: '📄', text: 'RPS', roles: ['superadmin', 'admin_prodi', 'dosen'] },
+    { to: '/admin/reports', icon: '📑', text: 'Laporan Diagnostik', roles: STAFF },
+    { to: '/admin/laporan-template', icon: '📃', text: 'Laporan Template', roles: STAFF },
+    { to: '/admin/export', icon: '⭳', text: 'Export Data', roles: ATAS },
+  ]},
+  { label: 'Manajemen', items: [
+    { to: '/admin/users', icon: '👤', text: 'Kelola Akun', roles: MANAGERS },
+  ]},
+  { label: 'Evaluasi Saya', items: [
+    { to: '/survey/dosen', icon: '✍️', text: 'Isi Evaluasi', roles: ['dosen'] },
+  ]},
+]
+
 const groups = computed(() => {
-  const g: { label: string; items: { to: string; icon: string; text: string; exact?: boolean }[] }[] = [
-    { label: 'Utama', items: [{ to: '/admin', icon: '▦', text: 'Dashboard', exact: true }] },
-    {
-      label: 'Akademik',
-      items: [
-        ...(!isDosen.value ? [
-          { to: '/admin/universities', icon: '🏫', text: 'Universitas' },
-          { to: '/admin/programs', icon: '📚', text: 'Program Studi' },
-        ] : []),
-        { to: '/admin/courses', icon: '📖', text: 'Mata Kuliah' },
-        { to: '/admin/cpls', icon: '🎯', text: 'CPL' },
-        { to: '/admin/cpmks', icon: '🎓', text: 'CPMK' },
-      ],
-    },
-    {
-      label: 'Evaluasi',
-      items: [
-        { to: '/admin/instruments', icon: '📋', text: 'Instrumen' },
-        { to: '/admin/anonymous-codes', icon: '🔑', text: 'Kode Anonim' },
-        { to: '/admin/analytics', icon: '📊', text: 'Analitik' },
-      ],
-    },
-    {
-      label: 'Penilaian',
-      items: [
-        { to: '/admin/assessment/schemes', icon: '⚖️', text: 'Skema Penilaian' },
-        { to: '/admin/assessment/rubrics', icon: '📝', text: 'Rubrik' },
-        { to: '/admin/assessment/mbkm', icon: '🌐', text: 'MBKM' },
-      ],
-    },
-    {
-      label: 'RPS & Laporan',
-      items: [
-        { to: '/admin/rps', icon: '📄', text: 'RPS' },
-        { to: '/admin/reports', icon: '📑', text: 'Laporan Diagnostik' },
-        { to: '/admin/laporan-template', icon: '📃', text: 'Laporan Template' },
-        { to: '/admin/export', icon: '⭳', text: 'Export Data' },
-      ],
-    },
-  ]
-  if (!isDosen.value) g.push({ label: 'Manajemen', items: [{ to: '/admin/users', icon: '👤', text: 'Kelola Akun' }] })
-  if (isDosen.value) g.push({ label: 'Evaluasi Saya', items: [{ to: '/survey/dosen', icon: '✍️', text: 'Isi Evaluasi' }] })
-  return g
+  const r = role.value
+  return ALL_GROUPS
+    .map(g => ({ label: g.label, items: g.items.filter(it => it.roles.includes(r)) }))
+    .filter(g => g.items.length > 0)
 })
 
 const initials = computed(() => {
@@ -113,8 +117,14 @@ const initials = computed(() => {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 })
 const roleLabel = computed(() => {
-  const map: Record<string, string> = { superadmin: 'Super Admin', admin: 'Admin', dosen: 'Dosen' }
-  return map[user.value?.role ?? ''] ?? user.value?.role ?? ''
+  const map: Record<string, string> = {
+    superadmin: 'Super Admin',
+    admin_universitas: 'Admin Universitas',
+    admin_fakultas: 'Admin Fakultas',
+    admin_prodi: 'Admin Prodi',
+    dosen: 'Dosen',
+  }
+  return map[role.value] ?? role.value
 })
 
 async function doLogout() {

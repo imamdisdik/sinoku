@@ -8,7 +8,7 @@ from typing import Optional
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from app.database import get_db
-from app.dependencies import require_admin, require_superadmin
+from app.dependencies import require_admin, require_superadmin, is_scoped, program_scope_condition
 from app.models.auth import User
 from app.models.response import Response, ResponseItem
 from app.models.respondent import Respondent
@@ -22,12 +22,10 @@ HEADER_FONT = Font(color="FFFFFF", bold=True, size=11)
 
 
 def _scope_responses(q, current_user: User):
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
-        if current_user.role == "dosen" and current_user.program_id:
-            q = q.where(Course.program_id == current_user.program_id)
+        ).where(program_scope_condition(current_user))
     return q
 
 
@@ -78,12 +76,10 @@ async def export_responses(
     UC-18d: data mentah individual hanya untuk superadmin.
     """
     q = select(Response, Respondent, Course).where(Response.is_complete == True)
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
-        if current_user.role == "dosen" and current_user.program_id:
-            q = q.where(Course.program_id == current_user.program_id)
+        ).where(program_scope_condition(current_user))
     else:
         q = q.join(Course, Response.course_id == Course.id)
     q = q.outerjoin(Respondent, Response.respondent_id == Respondent.id)
@@ -236,10 +232,8 @@ async def export_respondents(
         .join(Course, Response.course_id == Course.id)
         .where(Response.is_complete == True, Response.role == "mahasiswa")
     )
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
-        q = q.join(Program, Course.program_id == Program.id).where(
-            Program.university_id == current_user.university_id
-        )
+    if is_scoped(current_user):
+        q = q.join(Program, Course.program_id == Program.id).where(program_scope_condition(current_user))
     if course_id:
         q = q.where(Response.course_id == course_id)
     q = q.order_by(Response.submitted_at.desc())

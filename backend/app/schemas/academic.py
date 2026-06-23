@@ -70,9 +70,43 @@ class UniversityOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Faculty ───────────────────────────────────────────────────────────────────
+class FacultyCreate(BaseModel):
+    university_id: int
+    nama: str
+    nama_singkat: str
+    rumpun_keilmuan: Optional[str] = None
+
+
+class FacultyUpdate(BaseModel):
+    nama: Optional[str] = None
+    nama_singkat: Optional[str] = None
+    rumpun_keilmuan: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class FacultyOut(BaseModel):
+    id: int
+    university_id: int
+    nama: str
+    nama_singkat: str
+    rumpun_keilmuan: Optional[str]
+    is_active: bool
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class FacultyPublic(BaseModel):
+    id: int
+    nama: str
+    nama_singkat: str
+    model_config = {"from_attributes": True}
+
+
 # ── Program ───────────────────────────────────────────────────────────────────
 class ProgramCreate(BaseModel):
     university_id: int
+    faculty_id: Optional[int] = None
     nama: str
     nama_singkat: str
     jenjang: str
@@ -81,6 +115,7 @@ class ProgramCreate(BaseModel):
 
 
 class ProgramUpdate(BaseModel):
+    faculty_id: Optional[int] = None
     nama: Optional[str] = None
     nama_singkat: Optional[str] = None
     jenjang: Optional[str] = None
@@ -92,6 +127,7 @@ class ProgramUpdate(BaseModel):
 class ProgramOut(BaseModel):
     id: int
     university_id: int
+    faculty_id: Optional[int]
     nama: str
     nama_singkat: str
     jenjang: str
@@ -209,6 +245,13 @@ class PagedUniversity(BaseModel):
 
 class PagedProgram(BaseModel):
     data: List[ProgramOut]
+    total: int
+    page: int
+    limit: int
+
+
+class PagedFaculty(BaseModel):
+    data: List[FacultyOut]
     total: int
     page: int
     limit: int

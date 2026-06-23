@@ -3,12 +3,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, delete
 from typing import Optional
 from app.database import get_db
-from app.dependencies import require_admin, require_superadmin
-from app.models.academic import University, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping
+from app.dependencies import (
+    require_admin, require_superadmin, require_superadmin_or_admin,
+    is_scoped, program_scope_condition, program_in_scope, assert_program_in_scope,
+)
+from app.models.academic import University, Faculty, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping
 from app.models.response import Response
 from app.models.report import DiagnosticReport
 from app.schemas.academic import (
     UniversityCreate, UniversityUpdate, UniversityOut, PagedUniversity,
+    FacultyCreate, FacultyUpdate, FacultyOut, PagedFaculty,
     ProgramCreate, ProgramUpdate, ProgramOut, PagedProgram,
     CourseCreate, CourseUpdate, CourseOut, PagedCourse,
     CplCreate, CplUpdate, CplOut,
@@ -78,6 +82,96 @@ async def delete_university(uid: int, db: AsyncSession = Depends(get_db), _=Depe
     await db.commit()
 
 
+# ══════════════ FACULTY ═══════════════════════════════════════════════════════
+
+def _faculty_scope(q, user):
+    """Batasi daftar fakultas sesuai cakupan peran."""
+    if user.role == "superadmin":
+        return q
+    if user.role == "admin_fakultas" and user.faculty_id:
+        return q.where(Faculty.id == user.faculty_id)
+    if user.university_id:
+        return q.where(Faculty.university_id == user.university_id)
+    if user.program_id:
+        return q.where(Faculty.id == select(Program.faculty_id).where(Program.id == user.program_id).scalar_subquery())
+    return q.where(Faculty.id == -1)
+
+
+@router.get("/faculties", response_model=PagedFaculty)
+async def list_faculties(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=500),
+    university_id: Optional[int] = None,
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    q = select(Faculty)
+    q = _faculty_scope(q, current_user)
+    if current_user.role == "superadmin" and university_id:
+        q = q.where(Faculty.university_id == university_id)
+    if search:
+        q = q.where(or_(Faculty.nama.ilike(f"%{search}%"), Faculty.nama_singkat.ilike(f"%{search}%")))
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar()
+    rows = (await db.execute(q.offset((page - 1) * limit).limit(limit))).scalars().all()
+    return {"data": rows, "total": total, "page": page, "limit": limit}
+
+
+def _can_manage_faculty_univ(user, university_id: int) -> bool:
+    if user.role == "superadmin":
+        return True
+    if user.role == "admin_universitas":
+        return bool(user.university_id) and university_id == user.university_id
+    return False
+
+
+@router.post("/faculties", response_model=FacultyOut, status_code=201)
+async def create_faculty(body: FacultyCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    univ = await db.get(University, body.university_id)
+    if not univ:
+        raise HTTPException(404, "Universitas tidak ditemukan")
+    if not _can_manage_faculty_univ(current_user, body.university_id):
+        raise HTTPException(403, "Di luar cakupan Anda")
+    f = Faculty(**body.model_dump())
+    db.add(f)
+    await db.commit()
+    await db.refresh(f)
+    return f
+
+
+@router.get("/faculties/{fid}", response_model=FacultyOut)
+async def get_faculty(fid: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    f = await db.get(Faculty, fid)
+    if not f:
+        raise HTTPException(404, "Fakultas tidak ditemukan")
+    return f
+
+
+@router.put("/faculties/{fid}", response_model=FacultyOut)
+async def update_faculty(fid: int, body: FacultyUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    f = await db.get(Faculty, fid)
+    if not f:
+        raise HTTPException(404, "Fakultas tidak ditemukan")
+    if not _can_manage_faculty_univ(current_user, f.university_id):
+        raise HTTPException(403, "Di luar cakupan Anda")
+    for k, v in body.model_dump(exclude_none=True).items():
+        setattr(f, k, v)
+    await db.commit()
+    await db.refresh(f)
+    return f
+
+
+@router.delete("/faculties/{fid}", status_code=204)
+async def delete_faculty(fid: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    f = await db.get(Faculty, fid)
+    if not f:
+        raise HTTPException(404, "Fakultas tidak ditemukan")
+    if not _can_manage_faculty_univ(current_user, f.university_id):
+        raise HTTPException(403, "Di luar cakupan Anda")
+    await db.delete(f)
+    await db.commit()
+
+
 # ══════════════ PROGRAM ═══════════════════════════════════════════════════════
 
 @router.get("/programs", response_model=PagedProgram)
@@ -90,9 +184,9 @@ async def list_programs(
     current_user=Depends(require_admin),
 ):
     q = select(Program)
-    # Scoping: admin hanya lihat prodi di univ sendiri
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
-        q = q.where(Program.university_id == current_user.university_id)
+    # Scoping: tiap peran hanya lihat prodi dalam cakupannya
+    if is_scoped(current_user):
+        q = q.where(program_scope_condition(current_user))
     elif university_id:
         q = q.where(Program.university_id == university_id)
     if search:
@@ -103,10 +197,17 @@ async def list_programs(
 
 
 @router.post("/programs", response_model=ProgramOut, status_code=201)
-async def create_program(body: ProgramCreate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def create_program(body: ProgramCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     univ = await db.get(University, body.university_id)
     if not univ:
         raise HTTPException(404, "Universitas tidak ditemukan")
+    # Scope tulis: hanya superadmin/admin_universitas (univ sendiri) & admin_fakultas (fakultas sendiri)
+    if current_user.role == "admin_universitas" and body.university_id != current_user.university_id:
+        raise HTTPException(403, "Di luar cakupan Anda")
+    if current_user.role == "admin_fakultas" and body.faculty_id != current_user.faculty_id:
+        raise HTTPException(403, "Prodi harus di fakultas Anda")
+    if current_user.role == "admin_prodi":
+        raise HTTPException(403, "Admin Prodi tidak dapat membuat program studi")
     p = Program(**body.model_dump())
     db.add(p)
     await db.commit()
@@ -123,10 +224,12 @@ async def get_program(pid: int, db: AsyncSession = Depends(get_db), _=Depends(re
 
 
 @router.put("/programs/{pid}", response_model=ProgramOut)
-async def update_program(pid: int, body: ProgramUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def update_program(pid: int, body: ProgramUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     p = await db.get(Program, pid)
     if not p:
         raise HTTPException(404, "Program tidak ditemukan")
+    if current_user.role == "admin_prodi" or not program_in_scope(current_user, p):
+        raise HTTPException(403, "Di luar cakupan Anda")
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(p, k, v)
     await db.commit()
@@ -135,10 +238,12 @@ async def update_program(pid: int, body: ProgramUpdate, db: AsyncSession = Depen
 
 
 @router.delete("/programs/{pid}", status_code=204)
-async def delete_program(pid: int, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def delete_program(pid: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     p = await db.get(Program, pid)
     if not p:
         raise HTTPException(404, "Program tidak ditemukan")
+    if current_user.role == "admin_prodi" or not program_in_scope(current_user, p):
+        raise HTTPException(403, "Di luar cakupan Anda")
     await db.delete(p)
     await db.commit()
 
@@ -157,13 +262,9 @@ async def list_courses(
     current_user=Depends(require_admin),
 ):
     q = select(Course)
-    # Scoping: admin/dosen hanya lihat MK di univ sendiri (via join program)
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
-        q = q.join(Program, Course.program_id == Program.id).where(
-            Program.university_id == current_user.university_id
-        )
-        if current_user.role == "dosen" and current_user.program_id:
-            q = q.where(Course.program_id == current_user.program_id)
+    # Scoping: tiap peran hanya lihat MK dalam cakupannya (via join program)
+    if is_scoped(current_user):
+        q = q.join(Program, Course.program_id == Program.id).where(program_scope_condition(current_user))
     if program_id:
         q = q.where(Course.program_id == program_id)
     if semester:
@@ -178,7 +279,8 @@ async def list_courses(
 
 
 @router.post("/courses", response_model=CourseOut, status_code=201)
-async def create_course(body: CourseCreate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def create_course(body: CourseCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    await assert_program_in_scope(db, current_user, body.program_id)
     c = Course(**body.model_dump())
     db.add(c)
     await db.commit()
@@ -195,10 +297,11 @@ async def get_course(cid: int, db: AsyncSession = Depends(get_db), _=Depends(req
 
 
 @router.put("/courses/{cid}", response_model=CourseOut)
-async def update_course(cid: int, body: CourseUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def update_course(cid: int, body: CourseUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     c = await db.get(Course, cid)
     if not c:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    await assert_program_in_scope(db, current_user, c.program_id)
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(c, k, v)
     await db.commit()
@@ -207,10 +310,11 @@ async def update_course(cid: int, body: CourseUpdate, db: AsyncSession = Depends
 
 
 @router.delete("/courses/{cid}", status_code=204)
-async def delete_course(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def delete_course(cid: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     c = await db.get(Course, cid)
     if not c:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    await assert_program_in_scope(db, current_user, c.program_id)
     # Hapus dependensi ber-FK RESTRICT secara manual agar MK bisa dihapus.
     # Laporan diagnostik & respons evaluasi (respons cascade ke response_items,
     # response_open_answers, anonymous_codes lewat ON DELETE CASCADE di DB).
@@ -230,10 +334,11 @@ async def get_course_cpls(cid: int, db: AsyncSession = Depends(get_db), _=Depend
 
 
 @router.post("/courses/{cid}/cpls", status_code=201)
-async def map_course_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def map_course_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     c = await db.get(Course, cid)
     if not c:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    await assert_program_in_scope(db, current_user, c.program_id)
     existing_ids = set((await db.execute(
         select(CourseCplMapping.cpl_id).where(
             CourseCplMapping.course_id == cid,
@@ -248,7 +353,10 @@ async def map_course_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends
 
 
 @router.delete("/courses/{cid}/cpls/{cpl_id}", status_code=204)
-async def unmap_course_cpl(cid: int, cpl_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def unmap_course_cpl(cid: int, cpl_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    c = await db.get(Course, cid)
+    if c:
+        await assert_program_in_scope(db, current_user, c.program_id)
     await db.execute(delete(CourseCplMapping).where(CourseCplMapping.course_id == cid, CourseCplMapping.cpl_id == cpl_id))
     await db.commit()
 
@@ -263,11 +371,9 @@ async def list_cpls(
     current_user=Depends(require_admin),
 ):
     q = select(Cpl)
-    # Scoping: admin/dosen hanya lihat CPL di univ sendiri (via join program)
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
-        q = q.join(Program, Cpl.program_id == Program.id).where(
-            Program.university_id == current_user.university_id
-        )
+    # Scoping: tiap peran hanya lihat CPL dalam cakupannya (via join program)
+    if is_scoped(current_user):
+        q = q.join(Program, Cpl.program_id == Program.id).where(program_scope_condition(current_user))
     if program_id:
         q = q.where(Cpl.program_id == program_id)
     if kategori:
@@ -277,7 +383,8 @@ async def list_cpls(
 
 
 @router.post("/cpls", response_model=CplOut, status_code=201)
-async def create_cpl(body: CplCreate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def create_cpl(body: CplCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    await assert_program_in_scope(db, current_user, body.program_id)
     cpl = Cpl(**body.model_dump())
     db.add(cpl)
     await db.commit()
@@ -294,10 +401,11 @@ async def get_cpl(cid: int, db: AsyncSession = Depends(get_db), _=Depends(requir
 
 
 @router.put("/cpls/{cid}", response_model=CplOut)
-async def update_cpl(cid: int, body: CplUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def update_cpl(cid: int, body: CplUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     cpl = await db.get(Cpl, cid)
     if not cpl:
         raise HTTPException(404, "CPL tidak ditemukan")
+    await assert_program_in_scope(db, current_user, cpl.program_id)
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(cpl, k, v)
     await db.commit()
@@ -306,10 +414,11 @@ async def update_cpl(cid: int, body: CplUpdate, db: AsyncSession = Depends(get_d
 
 
 @router.delete("/cpls/{cid}", status_code=204)
-async def delete_cpl(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def delete_cpl(cid: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     cpl = await db.get(Cpl, cid)
     if not cpl:
         raise HTTPException(404, "CPL tidak ditemukan")
+    await assert_program_in_scope(db, current_user, cpl.program_id)
     await db.delete(cpl)
     await db.commit()
 
@@ -323,19 +432,28 @@ async def list_cpmks(
     current_user=Depends(require_admin),
 ):
     q = select(Cpmk)
-    # Scoping: admin/dosen hanya lihat CPMK di univ sendiri (via join course→program)
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    # Scoping: tiap peran hanya lihat CPMK dalam cakupannya (via join course→program)
+    if is_scoped(current_user):
         q = q.join(Course, Cpmk.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
+        ).where(program_scope_condition(current_user))
     if course_id:
         q = q.where(Cpmk.course_id == course_id)
     rows = (await db.execute(q)).scalars().all()
     return rows
 
 
+async def _assert_cpmk_scope(db, current_user, course_id: int):
+    """Validasi cakupan tulis CPMK lewat course → program."""
+    course = await db.get(Course, course_id)
+    if not course:
+        raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    await assert_program_in_scope(db, current_user, course.program_id)
+
+
 @router.post("/cpmks", response_model=CpmkOut, status_code=201)
-async def create_cpmk(body: CpmkCreate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def create_cpmk(body: CpmkCreate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    await _assert_cpmk_scope(db, current_user, body.course_id)
     cpmk = Cpmk(**body.model_dump())
     db.add(cpmk)
     await db.commit()
@@ -352,10 +470,11 @@ async def get_cpmk(cid: int, db: AsyncSession = Depends(get_db), _=Depends(requi
 
 
 @router.put("/cpmks/{cid}", response_model=CpmkOut)
-async def update_cpmk(cid: int, body: CpmkUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def update_cpmk(cid: int, body: CpmkUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     cpmk = await db.get(Cpmk, cid)
     if not cpmk:
         raise HTTPException(404, "CPMK tidak ditemukan")
+    await _assert_cpmk_scope(db, current_user, cpmk.course_id)
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(cpmk, k, v)
     await db.commit()
@@ -364,10 +483,11 @@ async def update_cpmk(cid: int, body: CpmkUpdate, db: AsyncSession = Depends(get
 
 
 @router.delete("/cpmks/{cid}", status_code=204)
-async def delete_cpmk(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def delete_cpmk(cid: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
     cpmk = await db.get(Cpmk, cid)
     if not cpmk:
         raise HTTPException(404, "CPMK tidak ditemukan")
+    await _assert_cpmk_scope(db, current_user, cpmk.course_id)
     await db.delete(cpmk)
     await db.commit()
 
@@ -381,7 +501,10 @@ async def get_cpmk_cpls(cid: int, db: AsyncSession = Depends(get_db), _=Depends(
 
 
 @router.post("/cpmks/{cid}/cpls", status_code=201)
-async def map_cpmk_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def map_cpmk_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    cpmk = await db.get(Cpmk, cid)
+    if cpmk:
+        await _assert_cpmk_scope(db, current_user, cpmk.course_id)
     existing_ids = set((await db.execute(
         select(CpmkCplMapping.cpl_id).where(
             CpmkCplMapping.cpmk_id == cid,
@@ -396,6 +519,9 @@ async def map_cpmk_cpls(cid: int, body: MappingIds, db: AsyncSession = Depends(g
 
 
 @router.delete("/cpmks/{cid}/cpls/{cpl_id}", status_code=204)
-async def unmap_cpmk_cpl(cid: int, cpl_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_superadmin)):
+async def unmap_cpmk_cpl(cid: int, cpl_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    cpmk = await db.get(Cpmk, cid)
+    if cpmk:
+        await _assert_cpmk_scope(db, current_user, cpmk.course_id)
     await db.execute(delete(CpmkCplMapping).where(CpmkCplMapping.cpmk_id == cid, CpmkCplMapping.cpl_id == cpl_id))
     await db.commit()

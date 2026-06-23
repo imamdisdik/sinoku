@@ -10,14 +10,40 @@ from app.core.security import hash_password
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
-ALLOWED_ROLES = {"admin", "dosen"}
+# Peran yang boleh dibuat tiap pengelola (hierarki turun)
+CREATABLE_BY = {
+    "superadmin": {"admin_universitas", "admin_fakultas", "admin_prodi", "dosen"},
+    "admin_universitas": {"admin_fakultas", "admin_prodi", "dosen"},
+    "admin_fakultas": {"admin_prodi", "dosen"},
+    "admin_prodi": {"dosen"},
+}
+ALLOWED_ROLES = {"admin_universitas", "admin_fakultas", "admin_prodi", "dosen"}
 
 
 def _scope(q, current_user: User):
-    """Terapkan scoping: admin hanya lihat user di univ sendiri."""
-    if current_user.role == "admin" and current_user.university_id:
-        q = q.where(User.university_id == current_user.university_id)
-    return q
+    """Batasi daftar akun sesuai cakupan peran pengelola."""
+    if current_user.role == "superadmin":
+        return q
+    if current_user.role == "admin_universitas" and current_user.university_id:
+        return q.where(User.university_id == current_user.university_id)
+    if current_user.role == "admin_fakultas" and current_user.faculty_id:
+        return q.where(User.faculty_id == current_user.faculty_id)
+    if current_user.role == "admin_prodi" and current_user.program_id:
+        return q.where(User.program_id == current_user.program_id)
+    # dosen / tanpa cakupan valid: tidak mengelola akun
+    return q.where(User.id == current_user.id)
+
+
+def _user_in_scope(current_user: User, user: User) -> bool:
+    if current_user.role == "superadmin":
+        return True
+    if current_user.role == "admin_universitas":
+        return user.university_id == current_user.university_id
+    if current_user.role == "admin_fakultas":
+        return user.faculty_id == current_user.faculty_id
+    if current_user.role == "admin_prodi":
+        return user.program_id == current_user.program_id
+    return False
 
 
 @router.get("", response_model=PagedUsers)
@@ -51,19 +77,27 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_superadmin_or_admin),
 ):
-    # Validasi role yang boleh dibuat
+    # Validasi role yang boleh dibuat oleh peran pengelola ini
     if body.role not in ALLOWED_ROLES:
-        raise HTTPException(400, "Role hanya boleh: admin atau dosen")
+        raise HTTPException(400, "Role tidak valid")
+    if body.role not in CREATABLE_BY.get(current_user.role, set()):
+        raise HTTPException(403, f"Peran Anda tidak dapat membuat akun '{body.role}'")
 
-    # Admin hanya bisa buat akun dosen (bukan admin lain)
-    if current_user.role == "admin" and body.role != "dosen":
-        raise HTTPException(403, "Admin universitas hanya bisa membuat akun dosen")
-
-    # Admin wajib assign ke univ sendiri
-    if current_user.role == "admin":
-        if body.university_id and body.university_id != current_user.university_id:
+    # Admin tingkat bawah: paksa cakupan akun baru ke cakupan pengelola
+    university_id = body.university_id
+    faculty_id = body.faculty_id
+    program_id = body.program_id
+    if current_user.role == "admin_universitas":
+        if university_id and university_id != current_user.university_id:
             raise HTTPException(403, "Tidak bisa membuat akun di universitas lain")
-        body = body.model_copy(update={"university_id": current_user.university_id})
+        university_id = current_user.university_id
+    elif current_user.role == "admin_fakultas":
+        university_id = current_user.university_id
+        faculty_id = current_user.faculty_id
+    elif current_user.role == "admin_prodi":
+        university_id = current_user.university_id
+        faculty_id = current_user.faculty_id
+        program_id = current_user.program_id
 
     # Cek email duplikat
     existing = (await db.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
@@ -75,8 +109,9 @@ async def create_user(
         full_name=body.full_name,
         hashed_password=hash_password(body.password),
         role=body.role,
-        university_id=body.university_id,
-        program_id=body.program_id,
+        university_id=university_id,
+        faculty_id=faculty_id,
+        program_id=program_id,
     )
     db.add(user)
     await db.commit()
@@ -93,8 +128,7 @@ async def get_user(
     user = await db.get(User, uid)
     if not user or user.role == "superadmin":
         raise HTTPException(404, "User tidak ditemukan")
-    # Admin hanya bisa lihat user di univ sendiri
-    if current_user.role == "admin" and user.university_id != current_user.university_id:
+    if not _user_in_scope(current_user, user):
         raise HTTPException(403, "Akses ditolak")
     return user
 
@@ -109,7 +143,7 @@ async def update_user(
     user = await db.get(User, uid)
     if not user or user.role == "superadmin":
         raise HTTPException(404, "User tidak ditemukan")
-    if current_user.role == "admin" and user.university_id != current_user.university_id:
+    if not _user_in_scope(current_user, user):
         raise HTTPException(403, "Akses ditolak")
 
     data = body.model_dump(exclude_none=True)
@@ -133,7 +167,7 @@ async def toggle_user_active(
     user = await db.get(User, uid)
     if not user or user.role == "superadmin":
         raise HTTPException(404, "User tidak ditemukan")
-    if current_user.role == "admin" and user.university_id != current_user.university_id:
+    if not _user_in_scope(current_user, user):
         raise HTTPException(403, "Akses ditolak")
 
     user.is_active = not user.is_active

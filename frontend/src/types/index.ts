@@ -6,11 +6,21 @@ export interface University {
   provinsi: string
 }
 
+export interface Faculty {
+  id: number
+  university_id: number
+  nama: string
+  nama_singkat: string
+  rumpun_keilmuan: string | null
+  is_active: boolean
+}
+
 export interface Program {
   id: number
   nama: string
   nama_singkat: string
   jenjang: string
+  faculty_id?: number | null
 }
 
 export interface Course {
@@ -68,5 +78,6 @@ export interface UserInfo {
   full_name: string
   role: string
   university_id: number | null
+  faculty_id: number | null
   program_id: number | null
 }

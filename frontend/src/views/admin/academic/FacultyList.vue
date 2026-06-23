@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="page-header">
-      <h1 class="page-title">Program Studi</h1>
+      <h1 class="page-title">Fakultas</h1>
       <button class="btn-primary" @click="openCreate">+ Tambah</button>
     </div>
 
@@ -14,18 +14,18 @@
 
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Nama Program</th><th>Singkat</th><th>Jenjang</th><th>Status</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Nama Fakultas</th><th>Singkat</th><th>Rumpun Keilmuan</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>
           <tr v-if="loading"><td colspan="5" class="center">Memuat...</td></tr>
           <tr v-else-if="!rows.length"><td colspan="5" class="center">Belum ada data</td></tr>
-          <tr v-for="p in rows" :key="p.id">
-            <td>{{ p.nama }}</td>
-            <td><span class="badge">{{ p.nama_singkat }}</span></td>
-            <td>{{ p.jenjang }}</td>
-            <td><span :class="p.is_active ? 'status-active' : 'status-inactive'">{{ p.is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
+          <tr v-for="f in rows" :key="f.id">
+            <td>{{ f.nama }}</td>
+            <td><span class="badge">{{ f.nama_singkat }}</span></td>
+            <td>{{ f.rumpun_keilmuan || '—' }}</td>
+            <td><span :class="f.is_active ? 'status-active' : 'status-inactive'">{{ f.is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
             <td>
-              <button class="btn-edit" @click="openEdit(p)">Edit</button>
-              <button class="btn-delete" @click="confirmDelete(p)">Hapus</button>
+              <button class="btn-edit" @click="openEdit(f)">Edit</button>
+              <button class="btn-delete" @click="confirmDelete(f)">Hapus</button>
             </td>
           </tr>
         </tbody>
@@ -40,43 +40,26 @@
 
     <div v-if="showModal" class="modal-overlay" @click.self="showModal=false">
       <div class="modal">
-        <h2 class="modal-title">{{ editing ? 'Edit' : 'Tambah' }} Program Studi</h2>
+        <h2 class="modal-title">{{ editing ? 'Edit' : 'Tambah' }} Fakultas</h2>
         <form @submit.prevent="save">
           <div class="form-grid">
-            <div class="form-group" style="grid-column:1/-1">
+            <div class="form-group" style="grid-column:1/-1" v-if="!editing">
               <label>Universitas *</label>
               <select v-model.number="form.university_id" required class="form-input">
                 <option v-for="u in univList" :key="u.id" :value="u.id">{{ u.nama }}</option>
               </select>
             </div>
             <div class="form-group" style="grid-column:1/-1">
-              <label>Fakultas</label>
-              <select v-model.number="form.faculty_id" class="form-input">
-                <option :value="null">— Tidak ditentukan —</option>
-                <option v-for="f in facultiesFor(form.university_id)" :key="f.id" :value="f.id">{{ f.nama }}</option>
-              </select>
-            </div>
-            <div class="form-group" style="grid-column:1/-1">
-              <label>Nama Program *</label>
+              <label>Nama Fakultas *</label>
               <input v-model="form.nama" required class="form-input" />
             </div>
             <div class="form-group">
               <label>Singkatan *</label>
-              <input v-model="form.nama_singkat" required class="form-input" />
+              <input v-model="form.nama_singkat" required class="form-input" placeholder="FIB / FT" />
             </div>
             <div class="form-group">
-              <label>Jenjang *</label>
-              <select v-model="form.jenjang" required class="form-input">
-                <option value="S1">S1</option><option value="S2">S2</option><option value="D3">D3</option><option value="D4">D4</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Tahun Berdiri</label>
-              <input v-model.number="form.tahun_berdiri" type="number" class="form-input" />
-            </div>
-            <div class="form-group">
-              <label>Akreditasi</label>
-              <input v-model="form.akreditasi" class="form-input" placeholder="A / B / C" />
+              <label>Rumpun Keilmuan</label>
+              <input v-model="form.rumpun_keilmuan" class="form-input" placeholder="Humaniora / Sains" />
             </div>
           </div>
           <div class="modal-actions">
@@ -89,8 +72,8 @@
 
     <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm=false">
       <div class="modal modal-sm">
-        <h2 class="modal-title">Hapus Program Studi?</h2>
-        <p class="confirm-text">Yakin hapus <strong>{{ deleteTarget?.nama }}</strong>?</p>
+        <h2 class="modal-title">Hapus Fakultas?</h2>
+        <p class="confirm-text">Yakin hapus <strong>{{ deleteTarget?.nama }}</strong>? Prodi yang tertaut akan kehilangan kaitan fakultasnya.</p>
         <div class="modal-actions">
           <button class="btn-cancel" @click="showConfirm=false">Batal</button>
           <button class="btn-delete" @click="doDelete" :disabled="saving">Hapus</button>
@@ -102,11 +85,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { getPrograms, createProgram, updateProgram, deleteProgram, getUniversities, getFaculties } from '@/api/admin'
+import { getFaculties, createFaculty, updateFaculty, deleteFaculty, getUniversities } from '@/api/admin'
 
 const rows = ref<any[]>([])
 const univList = ref<any[]>([])
-const facList = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const filterUniv = ref<number | ''>('')
@@ -118,16 +100,13 @@ const showModal = ref(false)
 const showConfirm = ref(false)
 const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
-const defaultForm = () => ({ university_id: 0, faculty_id: null as number|null, nama: '', nama_singkat: '', jenjang: 'S1', tahun_berdiri: null as number|null, akreditasi: '' })
+const defaultForm = () => ({ university_id: 0, nama: '', nama_singkat: '', rumpun_keilmuan: '' })
 const form = ref(defaultForm())
-function facultiesFor(univId: number) {
-  return facList.value.filter(f => f.university_id === univId)
-}
 
 async function fetchData() {
   loading.value = true
   try {
-    const res = await getPrograms({ page: page.value, limit, university_id: filterUniv.value || undefined })
+    const res = await getFaculties({ page: page.value, limit, university_id: filterUniv.value || undefined })
     rows.value = res.data.data; total.value = res.data.total
   } finally { loading.value = false }
 }
@@ -139,33 +118,26 @@ async function fetchUnivs() {
   } catch { /* tetap lanjut */ }
 }
 
-async function fetchFaculties() {
-  try {
-    const res = await getFaculties({ limit: 500 })
-    facList.value = res.data.data
-  } catch { /* tetap lanjut */ }
-}
-
 function openCreate() { editing.value = null; form.value = defaultForm(); showModal.value = true }
-function openEdit(p: any) { editing.value = p; form.value = { ...p }; showModal.value = true }
-function confirmDelete(p: any) { deleteTarget.value = p; showConfirm.value = true }
+function openEdit(f: any) { editing.value = f; form.value = { ...f }; showModal.value = true }
+function confirmDelete(f: any) { deleteTarget.value = f; showConfirm.value = true }
 
 async function save() {
   saving.value = true
   try {
-    if (editing.value) await updateProgram(editing.value.id, form.value)
-    else await createProgram(form.value)
+    if (editing.value) await updateFaculty(editing.value.id, form.value)
+    else await createFaculty(form.value)
     showModal.value = false; await fetchData()
   } finally { saving.value = false }
 }
 
 async function doDelete() {
   saving.value = true
-  try { await deleteProgram(deleteTarget.value.id); showConfirm.value = false; await fetchData() }
+  try { await deleteFaculty(deleteTarget.value.id); showConfirm.value = false; await fetchData() }
   finally { saving.value = false }
 }
 
-onMounted(async () => { await fetchUnivs(); await fetchFaculties(); await fetchData() })
+onMounted(async () => { await fetchUnivs(); await fetchData() })
 </script>
 
 <style scoped>

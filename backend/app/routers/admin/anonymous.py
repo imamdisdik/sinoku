@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, is_scoped, program_scope_condition
 from app.models.auth import User
 from app.models.response import AnonymousCode, Response
 from app.models.respondent import Respondent
@@ -46,11 +46,11 @@ async def list_anonymous_codes(
         .outerjoin(Respondent, Response.respondent_id == Respondent.id)
     )
 
-    # Scoping: admin universitas hanya lihat kode dari universitasnya sendiri
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    # Scoping: tiap peran hanya lihat kode dalam cakupannya
+    if is_scoped(current_user):
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
+        ).where(program_scope_condition(current_user))
 
     if search:
         q = q.where(AnonymousCode.kode.ilike(f"%{search}%"))

@@ -57,7 +57,7 @@
     "download_pdf": "Unduh PDF"
   },
   "auth": {
-    "login_title": "Masuk Admin",
+    "login_title": "Silakan masuk ke akun Anda",
     "email": "Email",
     "password": "Kata Sandi",
     "login_btn": "Masuk",

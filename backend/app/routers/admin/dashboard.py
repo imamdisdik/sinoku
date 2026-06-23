@@ -4,7 +4,7 @@ from sqlalchemy import select, func, case
 from typing import Optional
 from datetime import date
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, is_scoped, program_scope_condition
 from app.models.auth import User
 from app.models.response import Response, ResponseItem
 from app.models.respondent import Respondent
@@ -16,15 +16,13 @@ router = APIRouter(prefix="/admin/dashboard", tags=["admin-dashboard"])
 
 def _scope_responses(q, current_user: User, university_id=None, program_id=None):
     """Filter response berdasarkan scope role + filter eksplisit univ/prodi (F-07.3)."""
-    scoped = current_user.role in ("admin", "dosen") and current_user.university_id
+    scoped = is_scoped(current_user)
     if scoped or university_id or program_id:
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
         )
         if scoped:
-            q = q.where(Program.university_id == current_user.university_id)
-            if current_user.role == "dosen" and current_user.program_id:
-                q = q.where(Course.program_id == current_user.program_id)
+            q = q.where(program_scope_condition(current_user))
         if university_id:
             q = q.where(Program.university_id == university_id)
         if program_id:

@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, is_scoped, program_scope_condition, program_in_scope
 from app.models.auth import User
 from app.models.rps import RpsVersion, RpsChecklistItem, RpsChecklistResponse
 from app.models.academic import Course, Program
@@ -74,22 +74,20 @@ class ChecklistUpdate(BaseModel):
 
 async def _check_rps_university(rps: RpsVersion, current_user: User, db: AsyncSession):
     """Pastikan RPS yang diakses milik universitas user (admin/dosen)."""
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         course = await db.get(Course, rps.course_id)
         if not course:
             raise HTTPException(403, "Akses ditolak")
         program = await db.get(Program, course.program_id)
-        if not program or program.university_id != current_user.university_id:
+        if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
 
 
 def _scope_course(q, current_user: User):
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         q = q.join(Course, RpsVersion.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
-        if current_user.role == "dosen" and current_user.program_id:
-            q = q.where(Course.program_id == current_user.program_id)
+        ).where(program_scope_condition(current_user))
     return q
 
 

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import Optional
 from pydantic import BaseModel, Field
 from app.database import get_db
-from app.dependencies import require_admin, require_superadmin_or_admin
+from app.dependencies import require_admin, require_superadmin_or_admin, is_scoped, program_scope_condition, program_in_scope
 from app.models.auth import User
 from app.models.assessment import AssessmentScheme, AssessmentRubric, MbkmIntegration
 from app.models.academic import Course, Program
@@ -104,9 +104,9 @@ async def _check_course_access(course_id: int, current_user: User, db: AsyncSess
     course = await db.get(Course, course_id)
     if not course:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         program = await db.get(Program, course.program_id)
-        if not program or program.university_id != current_user.university_id:
+        if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
     return course
 
@@ -120,18 +120,18 @@ async def _check_scheme_access(scheme_id: int, current_user: User, db: AsyncSess
 
 
 def _scope_scheme(q, current_user: User):
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         q = q.join(Course, AssessmentScheme.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
+        ).where(program_scope_condition(current_user))
     return q
 
 
 def _scope_mbkm(q, current_user: User):
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         q = q.join(Course, MbkmIntegration.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
+        ).where(program_scope_condition(current_user))
     return q
 
 

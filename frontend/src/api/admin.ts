@@ -10,6 +10,12 @@ export const createUniversity = (data: object) => api.post('/admin/universities'
 export const updateUniversity = (id: number, data: object) => api.put(`/admin/universities/${id}`, data)
 export const deleteUniversity = (id: number) => api.delete(`/admin/universities/${id}`)
 
+// Faculties
+export const getFaculties = (params?: object) => api.get('/admin/faculties', { params })
+export const createFaculty = (data: object) => api.post('/admin/faculties', data)
+export const updateFaculty = (id: number, data: object) => api.put(`/admin/faculties/${id}`, data)
+export const deleteFaculty = (id: number) => api.delete(`/admin/faculties/${id}`)
+
 // Programs
 export const getPrograms = (params?: object) => api.get('/admin/programs', { params })
 export const createProgram = (data: object) => api.post('/admin/programs', data)

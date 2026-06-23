@@ -23,6 +23,7 @@ class UserInfo(BaseModel):
     full_name: str
     role: str
     university_id: Optional[int] = None
+    faculty_id: Optional[int] = None
     program_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
@@ -44,6 +45,7 @@ class UserOut(BaseModel):
     full_name: str
     role: str
     university_id: Optional[int] = None
+    faculty_id: Optional[int] = None
     program_id: Optional[int] = None
     is_active: bool
     last_login: Optional[datetime] = None
@@ -55,8 +57,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str
     password: str
-    role: str               # admin | dosen
+    role: str               # admin_universitas | admin_fakultas | admin_prodi | dosen
     university_id: Optional[int] = None
+    faculty_id: Optional[int] = None
     program_id: Optional[int] = None
 
 
@@ -65,6 +68,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     university_id: Optional[int] = None
+    faculty_id: Optional[int] = None
     program_id: Optional[int] = None
     is_active: Optional[bool] = None
 

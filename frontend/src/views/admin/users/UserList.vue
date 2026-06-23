@@ -6,12 +6,14 @@
     </div>
 
     <div class="toolbar">
-      <select v-model="filterRole" @change="() => { page.value = 1; fetchData() }" class="search-input">
+      <select v-model="filterRole" @change="() => { page = 1; fetchData() }" class="search-input">
         <option value="">Semua Role</option>
-        <option value="admin">Admin Universitas</option>
+        <option value="admin_universitas">Admin Universitas</option>
+        <option value="admin_fakultas">Admin Fakultas</option>
+        <option value="admin_prodi">Admin Prodi</option>
         <option value="dosen">Dosen</option>
       </select>
-      <select v-model="filterActive" @change="() => { page.value = 1; fetchData() }" class="search-input">
+      <select v-model="filterActive" @change="() => { page = 1; fetchData() }" class="search-input">
         <option value="">Semua Status</option>
         <option value="true">Aktif</option>
         <option value="false">Nonaktif</option>
@@ -27,6 +29,7 @@
             <th>Email</th>
             <th>Role</th>
             <th>Universitas</th>
+            <th>Fakultas</th>
             <th>Program Studi</th>
             <th>Status</th>
             <th>Login Terakhir</th>
@@ -34,8 +37,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="8" class="center">Memuat...</td></tr>
-          <tr v-else-if="!rows.length"><td colspan="8" class="center">Belum ada akun</td></tr>
+          <tr v-if="loading"><td colspan="9" class="center">Memuat...</td></tr>
+          <tr v-else-if="!rows.length"><td colspan="9" class="center">Belum ada akun</td></tr>
           <tr v-for="u in rows" :key="u.id">
             <td>
               <div class="user-name">{{ u.full_name }}</div>
@@ -43,6 +46,7 @@
             <td class="email-cell">{{ u.email }}</td>
             <td><span :class="roleBadge(u.role)">{{ roleLabel(u.role) }}</span></td>
             <td>{{ univName(u.university_id) || '—' }}</td>
+            <td>{{ facultyName(u.faculty_id) || '—' }}</td>
             <td>{{ programName(u.program_id) || '—' }}</td>
             <td><span :class="u.is_active ? 'status-active' : 'status-inactive'">{{ u.is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
             <td class="meta-cell">{{ u.last_login ? formatDate(u.last_login) : 'Belum pernah' }}</td>
@@ -81,11 +85,10 @@
               <label>{{ editing ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password *' }}</label>
               <input v-model="form.password" type="password" :required="!editing" class="form-input" autocomplete="new-password" />
             </div>
-            <div class="form-group" v-if="!editing && isSuperadmin">
+            <div class="form-group" v-if="!editing">
               <label>Role *</label>
               <select v-model="form.role" required class="form-input">
-                <option value="admin">Admin Universitas</option>
-                <option value="dosen">Dosen</option>
+                <option v-for="r in creatableRoles" :key="r" :value="r">{{ roleLabel(r) }}</option>
               </select>
             </div>
             <div class="form-group" v-if="isSuperadmin">
@@ -95,7 +98,14 @@
                 <option v-for="u in univList" :key="u.id" :value="u.id">{{ u.nama_singkat }} — {{ u.nama }}</option>
               </select>
             </div>
-            <div class="form-group" v-if="form.role === 'dosen'">
+            <div class="form-group" v-if="showFacultyField">
+              <label>Fakultas</label>
+              <select v-model.number="form.faculty_id" class="form-input">
+                <option :value="null">— Pilih Fakultas —</option>
+                <option v-for="f in filteredFaculties" :key="f.id" :value="f.id">{{ f.nama_singkat }} — {{ f.nama }}</option>
+              </select>
+            </div>
+            <div class="form-group" v-if="showProgramField">
               <label>Program Studi</label>
               <select v-model.number="form.program_id" class="form-input">
                 <option :value="null">— Pilih Prodi —</option>
@@ -118,14 +128,24 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { getUsers, createUser, updateUser, toggleUserActive, getUniversities, getPrograms } from '@/api/admin'
+import { getUsers, createUser, updateUser, toggleUserActive, getUniversities, getFaculties, getPrograms } from '@/api/admin'
 
 const auth = useAuthStore()
-const { user, isSuperadmin } = storeToRefs(auth)
+const { user, role: myRole, isSuperadmin, isAdminUniversitas, isAdminFakultas } = storeToRefs(auth)
 const ui = useUiStore()
+
+// Peran yang boleh dibuat oleh pengelola saat ini (hierarki turun)
+const CREATABLE: Record<string, string[]> = {
+  superadmin: ['admin_universitas', 'admin_fakultas', 'admin_prodi', 'dosen'],
+  admin_universitas: ['admin_fakultas', 'admin_prodi', 'dosen'],
+  admin_fakultas: ['admin_prodi', 'dosen'],
+  admin_prodi: ['dosen'],
+}
+const creatableRoles = computed(() => CREATABLE[myRole.value] ?? [])
 
 const rows = ref<any[]>([])
 const univList = ref<any[]>([])
+const facultyListData = ref<any[]>([])
 const programList = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -143,17 +163,34 @@ const defaultForm = () => ({
   full_name: '',
   email: '',
   password: '',
-  role: isSuperadmin ? 'dosen' : 'dosen',
+  role: creatableRoles.value[creatableRoles.value.length - 1] ?? 'dosen',  // default: peran terendah (dosen)
   university_id: isSuperadmin.value ? null : (user.value?.university_id ?? null),
+  faculty_id: null as number | null,
   program_id: null as number | null,
 })
 const form = ref(defaultForm())
 
-const filteredPrograms = computed(() =>
-  form.value.university_id
-    ? programList.value.filter((p: any) => p.university_id === form.value.university_id)
-    : programList.value
+// Tampilkan field cakupan sesuai peran yang dibuat + kewenangan pengelola
+const showFacultyField = computed(() =>
+  (isSuperadmin.value || isAdminUniversitas.value) &&
+  ['admin_fakultas', 'admin_prodi', 'dosen'].includes(form.value.role)
 )
+const showProgramField = computed(() =>
+  (isSuperadmin.value || isAdminUniversitas.value || isAdminFakultas.value) &&
+  ['admin_prodi', 'dosen'].includes(form.value.role)
+)
+
+const filteredFaculties = computed(() =>
+  form.value.university_id
+    ? facultyListData.value.filter((f: any) => f.university_id === form.value.university_id)
+    : facultyListData.value
+)
+const filteredPrograms = computed(() => {
+  let list = programList.value
+  if (form.value.faculty_id) list = list.filter((p: any) => p.faculty_id === form.value.faculty_id)
+  else if (form.value.university_id) list = list.filter((p: any) => p.university_id === form.value.university_id)
+  return list
+})
 
 const totalPages = computed(() => Math.ceil(total.value / limit))
 
@@ -184,11 +221,20 @@ function univName(id: number | null) {
 function programName(id: number | null) {
   return programList.value.find((p: any) => p.id === id)?.nama_singkat ?? ''
 }
+function facultyName(id: number | null) {
+  return facultyListData.value.find((f: any) => f.id === id)?.nama_singkat ?? ''
+}
 function roleLabel(role: string) {
-  return { superadmin: 'Super Admin', admin: 'Admin Univ', dosen: 'Dosen' }[role] ?? role
+  return ({
+    superadmin: 'Super Admin', admin_universitas: 'Admin Universitas',
+    admin_fakultas: 'Admin Fakultas', admin_prodi: 'Admin Prodi', dosen: 'Dosen',
+  } as Record<string, string>)[role] ?? role
 }
 function roleBadge(role: string) {
-  return { superadmin: 'badge-sa', admin: 'badge-admin', dosen: 'badge-dosen' }[role] ?? 'badge-dosen'
+  return ({
+    superadmin: 'badge-sa', admin_universitas: 'badge-admin',
+    admin_fakultas: 'badge-admin', admin_prodi: 'badge-prodi', dosen: 'badge-dosen',
+  } as Record<string, string>)[role] ?? 'badge-dosen'
 }
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -201,7 +247,7 @@ function openCreate() {
 }
 function openEdit(u: any) {
   editing.value = u
-  form.value = { full_name: u.full_name, email: u.email, password: '', role: u.role, university_id: u.university_id, program_id: u.program_id }
+  form.value = { full_name: u.full_name, email: u.email, password: '', role: u.role, university_id: u.university_id, faculty_id: u.faculty_id ?? null, program_id: u.program_id }
   showModal.value = true
 }
 
@@ -233,6 +279,7 @@ async function doToggle(u: any) {
 onMounted(async () => {
   await Promise.all([
     getUniversities({ limit: 500 }).then(r => { univList.value = r.data.data }),
+    getFaculties({ limit: 500 }).then(r => { facultyListData.value = r.data.data }),
     getPrograms({ limit: 500 }).then(r => { programList.value = r.data.data }),
   ]).catch(() => {})
   await fetchData()
@@ -255,6 +302,7 @@ onMounted(async () => {
 .meta-cell { color:#718096; font-size:12px }
 .badge-sa { background:#faf5ff; color:#553c9a; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700 }
 .badge-admin { background:#ebf8ff; color:#2b6cb0; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700 }
+.badge-prodi { background:#fffaf0; color:#b7791f; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700 }
 .badge-dosen { background:#f0fff4; color:#276749; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700 }
 .status-active { color:#38a169; font-size:12px; font-weight:600 }
 .status-inactive { color:#e53e3e; font-size:12px; font-weight:600 }

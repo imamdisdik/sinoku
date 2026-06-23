@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from datetime import date, datetime
 import uuid
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, is_scoped, program_scope_condition, program_in_scope
 from app.models.auth import User
 from app.models.report import DiagnosticReport
 from app.models.response import Response, ResponseItem
@@ -44,12 +44,10 @@ class ReportOut(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _scope_responses(q, current_user: User):
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
+    if is_scoped(current_user):
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
-        ).where(Program.university_id == current_user.university_id)
-        if current_user.role == "dosen" and current_user.program_id:
-            q = q.where(Course.program_id == current_user.program_id)
+        ).where(program_scope_condition(current_user))
     return q
 
 
@@ -352,17 +350,13 @@ async def generate_report(
     if not course:
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
 
-    # Validasi akses universitas
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
-        program = await db.get(Program, course.program_id)
-        if not program or program.university_id != current_user.university_id:
+    # Validasi akses sesuai cakupan peran
+    program = await db.get(Program, course.program_id)
+    if is_scoped(current_user):
+        if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
-        university_id = current_user.university_id
-        program_id = course.program_id
-    else:
-        program = await db.get(Program, course.program_id)
-        university_id = program.university_id if program else 0
-        program_id = course.program_id
+    university_id = program.university_id if program else 0
+    program_id = course.program_id
 
     snapshot = await _build_snapshot(body.course_id, body.periode_start, body.periode_end, db)
 
@@ -405,8 +399,8 @@ async def template_report_data(
         raise HTTPException(404, "Mata kuliah tidak ditemukan")
     program = await db.get(Program, course.program_id)
     university = await db.get(University, program.university_id) if program else None
-    if current_user.role in ("admin", "dosen") and current_user.university_id:
-        if not program or program.university_id != current_user.university_id:
+    if is_scoped(current_user):
+        if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
 
     # Respons selesai dalam periode, difilter peran

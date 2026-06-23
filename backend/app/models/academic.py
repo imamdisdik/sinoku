@@ -19,8 +19,24 @@ class University(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+    faculties: Mapped[list["Faculty"]] = relationship("Faculty", back_populates="university")
     programs: Mapped[list["Program"]] = relationship("Program", back_populates="university")
     respondents: Mapped[list["Respondent"]] = relationship("Respondent", back_populates="university")
+
+
+class Faculty(Base):
+    __tablename__ = "faculties"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    university_id: Mapped[int] = mapped_column(Integer, ForeignKey("universities.id", ondelete="CASCADE"), nullable=False)
+    nama: Mapped[str] = mapped_column(String(200), nullable=False)
+    nama_singkat: Mapped[str] = mapped_column(String(20), nullable=False)
+    rumpun_keilmuan: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    university: Mapped["University"] = relationship("University", back_populates="faculties")
+    programs: Mapped[list["Program"]] = relationship("Program", back_populates="faculty")
 
 
 class Program(Base):
@@ -28,6 +44,7 @@ class Program(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     university_id: Mapped[int] = mapped_column(Integer, ForeignKey("universities.id", ondelete="CASCADE"), nullable=False)
+    faculty_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("faculties.id", ondelete="SET NULL"), nullable=True)
     nama: Mapped[str] = mapped_column(String(200), nullable=False)
     nama_singkat: Mapped[str] = mapped_column(String(20), nullable=False)
     jenjang: Mapped[str] = mapped_column(String(10), nullable=False)  # S1 | S2 | D3 | D4
@@ -36,6 +53,7 @@ class Program(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     university: Mapped["University"] = relationship("University", back_populates="programs")
+    faculty: Mapped["Faculty"] = relationship("Faculty", back_populates="programs")
     courses: Mapped[list["Course"]] = relationship("Course", back_populates="program")
     cpls: Mapped[list["Cpl"]] = relationship("Cpl", back_populates="program")
     respondents: Mapped[list["Respondent"]] = relationship("Respondent", back_populates="program")

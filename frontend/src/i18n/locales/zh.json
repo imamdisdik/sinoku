@@ -57,7 +57,7 @@
     "download_pdf": "下载PDF"
   },
   "auth": {
-    "login_title": "管理员登录",
+    "login_title": "请登录您的账户",
     "email": "邮箱",
     "password": "密码",
     "login_btn": "登录",
