@@ -14,13 +14,13 @@
           <RouterLink to="/" class="btn btn-primary">{{ t('nav.home') }}</RouterLink>
         </div>
       </template>
-      <!-- Dosen: kembali ke halaman evaluasi -->
+      <!-- Dosen: tombol kembali ke dashboard -->
       <template v-else>
         <p style="color:#4a5568; font-size:14px; margin-bottom:24px;">
-          Evaluasi Anda telah tersimpan. Terima kasih.
+          Evaluasi Anda telah tersimpan dan dapat dilihat di dashboard.
         </p>
         <div style="display:flex; gap:12px; justify-content:center;">
-          <RouterLink to="/survey/dosen" class="btn btn-primary">Isi Evaluasi Lagi</RouterLink>
+          <RouterLink to="/admin" class="btn btn-primary">Kembali ke Dashboard</RouterLink>
         </div>
       </template>
     </div>
