@@ -6,7 +6,11 @@ from pydantic import BaseModel
 from datetime import date, datetime
 import uuid
 from app.database import get_db
-from app.dependencies import require_admin, is_scoped, program_scope_condition, program_in_scope
+from app.dependencies import (
+    require_admin, is_scoped, program_scope_condition, program_in_scope,
+    dosen_course_ids_subquery, dosen_can_access_course,
+)
+from app.models.academic import CourseLecturer
 from app.models.auth import User
 from app.models.report import DiagnosticReport
 from app.models.response import Response, ResponseItem
@@ -312,10 +316,16 @@ async def list_reports(
 ):
     if current_user.role == "superadmin":
         q = select(DiagnosticReport)
-    elif current_user.university_id:
+    elif current_user.role == "dosen":
+        # Dosen: hanya laporan MK yang ia ampu
         q = select(DiagnosticReport).where(
-            DiagnosticReport.university_id == current_user.university_id
+            DiagnosticReport.course_id.in_(dosen_course_ids_subquery(current_user))
         )
+    elif is_scoped(current_user):
+        # Admin tingkat: scope via program (univ/fakultas/prodi)
+        q = select(DiagnosticReport).join(
+            Program, DiagnosticReport.program_id == Program.id
+        ).where(program_scope_condition(current_user))
     else:
         q = select(DiagnosticReport).where(
             DiagnosticReport.generated_by == current_user.id
@@ -355,6 +365,8 @@ async def generate_report(
     if is_scoped(current_user):
         if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
+    if not await dosen_can_access_course(db, current_user, body.course_id):
+        raise HTTPException(403, "Anda tidak mengampu mata kuliah ini")
     university_id = program.university_id if program else 0
     program_id = course.program_id
 
@@ -402,6 +414,8 @@ async def template_report_data(
     if is_scoped(current_user):
         if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
+    if not await dosen_can_access_course(db, current_user, course_id):
+        raise HTTPException(403, "Anda tidak mengampu mata kuliah ini")
 
     # Respons selesai dalam periode, difilter peran
     q = select(Response).where(
@@ -489,7 +503,10 @@ async def get_report(
     report = await db.get(DiagnosticReport, uuid.UUID(report_id))
     if not report:
         raise HTTPException(404, "Laporan tidak ditemukan")
-    if current_user.role not in ("superadmin",) and report.university_id != current_user.university_id:
+    if current_user.role == "dosen":
+        if not await dosen_can_access_course(db, current_user, report.course_id):
+            raise HTTPException(403, "Akses ditolak")
+    elif current_user.role != "superadmin" and report.university_id != current_user.university_id:
         raise HTTPException(403, "Akses ditolak")
     return {
         "id": str(report.id),

@@ -129,3 +129,25 @@ async def assert_program_in_scope(db, user: User, program_id: int):
         raise HTTPException(status_code=404, detail="Program tidak ditemukan")
     if not program_in_scope(user, program):
         raise HTTPException(status_code=403, detail="Di luar cakupan Anda")
+
+
+def dosen_course_ids_subquery(user: User):
+    """Subquery id Mata Kuliah yang diampu dosen (untuk filter Course.id.in_)."""
+    from app.models.academic import CourseLecturer
+    from sqlalchemy import select
+    return select(CourseLecturer.course_id).where(CourseLecturer.user_id == user.id)
+
+
+async def dosen_can_access_course(db, user: User, course_id: int) -> bool:
+    """True jika user bukan dosen, atau dosen yang mengampu MK tsb."""
+    if user.role != "dosen":
+        return True
+    from app.models.academic import CourseLecturer
+    from sqlalchemy import select
+    res = await db.execute(
+        select(CourseLecturer.id).where(
+            CourseLecturer.course_id == course_id,
+            CourseLecturer.user_id == user.id,
+        )
+    )
+    return res.scalar_one_or_none() is not None

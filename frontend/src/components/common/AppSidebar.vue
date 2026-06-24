@@ -74,6 +74,7 @@ const ALL_GROUPS: { label: string; items: NavItem[] }[] = [
     { to: '/admin', icon: '▦', text: 'Dashboard', exact: true, roles: STAFF },
   ]},
   { label: 'Akademik', items: [
+    { to: '/admin/mata-kuliah-saya', icon: '📘', text: 'Mata Kuliah Saya', roles: ['dosen'] },
     { to: '/admin/universities', icon: '🏫', text: 'Universitas', roles: ['superadmin'] },
     { to: '/admin/faculties', icon: '🏛️', text: 'Fakultas', roles: ['superadmin', 'admin_universitas'] },
     { to: '/admin/programs', icon: '📚', text: 'Program Studi', roles: ['superadmin', 'admin_universitas', 'admin_fakultas'] },

@@ -104,10 +104,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
-import { getRpsList, createRps, updateRps, deleteRps, getCourses } from '@/api/admin'
+import { getRpsList, createRps, updateRps, deleteRps, getCourses, getMyCourses } from '@/api/admin'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const ui = useUiStore()
+const auth = useAuthStore()
 
 const rows = ref<any[]>([])
 const courses = ref<any[]>([])
@@ -176,8 +178,16 @@ async function doDelete(r: any) {
 }
 
 onMounted(async () => {
-  const res = await getCourses({ limit: 200 }).catch(() => ({ data: { data: [] } }))
-  courses.value = res.data.data ?? []
+  // Dosen: hanya MK yang ia ampu; lainnya: MK dalam cakupannya
+  try {
+    if (auth.isDosen) {
+      const res = await getMyCourses()
+      courses.value = res.data ?? []
+    } else {
+      const res = await getCourses({ limit: 200 })
+      courses.value = res.data.data ?? []
+    }
+  } catch { courses.value = [] }
   await fetchData()
 })
 </script>

@@ -5,7 +5,10 @@ from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from app.database import get_db
-from app.dependencies import require_admin, is_scoped, program_scope_condition, program_in_scope
+from app.dependencies import (
+    require_admin, is_scoped, program_scope_condition, program_in_scope,
+    assert_program_in_scope, dosen_course_ids_subquery, dosen_can_access_course,
+)
 from app.models.auth import User
 from app.models.rps import RpsVersion, RpsChecklistItem, RpsChecklistResponse
 from app.models.academic import Course, Program
@@ -81,6 +84,8 @@ async def _check_rps_university(rps: RpsVersion, current_user: User, db: AsyncSe
         program = await db.get(Program, course.program_id)
         if not program or not program_in_scope(current_user, program):
             raise HTTPException(403, "Akses ditolak")
+        if not await dosen_can_access_course(db, current_user, rps.course_id):
+            raise HTTPException(403, "Anda tidak mengampu mata kuliah ini")
 
 
 def _scope_course(q, current_user: User):
@@ -88,6 +93,9 @@ def _scope_course(q, current_user: User):
         q = q.join(Course, RpsVersion.course_id == Course.id).join(
             Program, Course.program_id == Program.id
         ).where(program_scope_condition(current_user))
+        # Dosen: hanya RPS untuk MK yang ia ampu
+        if current_user.role == "dosen":
+            q = q.where(Course.id.in_(dosen_course_ids_subquery(current_user)))
     return q
 
 
@@ -116,6 +124,12 @@ async def create_rps(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    course = await db.get(Course, body.course_id)
+    if not course:
+        raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    await assert_program_in_scope(db, current_user, course.program_id)
+    if not await dosen_can_access_course(db, current_user, body.course_id):
+        raise HTTPException(403, "Anda tidak mengampu mata kuliah ini")
     rps = RpsVersion(
         course_id=body.course_id,
         tahun_akademik=body.tahun_akademik,

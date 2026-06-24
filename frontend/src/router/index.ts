@@ -26,6 +26,7 @@ const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: () => import('@/views/admin/DashboardHome.vue') },
         { path: 'universities', name: 'admin-universities', component: () => import('@/views/admin/academic/UniversityList.vue') },
+        { path: 'mata-kuliah-saya', name: 'admin-my-courses', component: () => import('@/views/admin/academic/MyCourses.vue') },
         { path: 'faculties', name: 'admin-faculties', component: () => import('@/views/admin/academic/FacultyList.vue') },
         { path: 'programs', name: 'admin-programs', component: () => import('@/views/admin/academic/ProgramList.vue') },
         { path: 'courses', name: 'admin-courses', component: () => import('@/views/admin/academic/CourseList.vue') },

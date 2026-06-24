@@ -89,9 +89,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUiStore } from '@/stores/ui'
-import { getCourses, getTemplateReportData } from '@/api/admin'
+import { getCourses, getMyCourses, getTemplateReportData } from '@/api/admin'
+import { useAuthStore } from '@/stores/auth'
 
 const ui = useUiStore()
+const auth = useAuthStore()
 const courses = ref<any[]>([])
 const courseId = ref<number | null>(null)
 const role = ref('semua')
@@ -137,8 +139,15 @@ async function generate() {
 function printReport() { window.print() }
 
 onMounted(async () => {
-  const res = await getCourses({ limit: 200 }).catch(() => ({ data: { data: [] } }))
-  courses.value = res.data.data ?? []
+  try {
+    if (auth.isDosen) {
+      const res = await getMyCourses()
+      courses.value = res.data ?? []
+    } else {
+      const res = await getCourses({ limit: 200 })
+      courses.value = res.data.data ?? []
+    }
+  } catch { courses.value = [] }
 })
 </script>
 

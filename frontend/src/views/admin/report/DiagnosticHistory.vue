@@ -86,10 +86,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
-import { getReports, generateReport, deleteReport, getCourses } from '@/api/admin'
+import { getReports, generateReport, deleteReport, getCourses, getMyCourses } from '@/api/admin'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const ui = useUiStore()
+const auth = useAuthStore()
 
 const rows = ref<any[]>([])
 const courses = ref<any[]>([])
@@ -158,8 +160,15 @@ async function doDelete(r: any) {
 }
 
 onMounted(async () => {
-  const res = await getCourses({ limit: 200 }).catch(() => ({ data: { data: [] } }))
-  courses.value = res.data.data ?? []
+  try {
+    if (auth.isDosen) {
+      const res = await getMyCourses()
+      courses.value = res.data ?? []
+    } else {
+      const res = await getCourses({ limit: 200 })
+      courses.value = res.data.data ?? []
+    }
+  } catch { courses.value = [] }
   await fetchData()
 })
 </script>
