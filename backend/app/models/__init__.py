@@ -1,5 +1,5 @@
 from app.models.auth import User, Session
-from app.models.academic import University, Faculty, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping
+from app.models.academic import University, Faculty, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping, CourseLecturer
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem, OpenQuestion
 from app.models.respondent import (Respondent, RespondentCourseTaught, RespondentCourseTaken,
                                     RespondentMotivation, RespondentCareerGoal,
@@ -11,7 +11,7 @@ from app.models.report import DiagnosticReport
 
 __all__ = [
     "User", "Session",
-    "University", "Faculty", "Program", "Course", "Cpl", "Cpmk", "CourseCplMapping", "CpmkCplMapping",
+    "University", "Faculty", "Program", "Course", "Cpl", "Cpmk", "CourseCplMapping", "CpmkCplMapping", "CourseLecturer",
     "CippDimension", "CippSubDimension", "InstrumentItem", "OpenQuestion",
     "Respondent", "RespondentCourseTaught", "RespondentCourseTaken",
     "RespondentMotivation", "RespondentCareerGoal", "RespondentMediaUsage", "RespondentActivity",

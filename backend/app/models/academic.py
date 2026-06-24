@@ -1,6 +1,8 @@
 from sqlalchemy import String, Boolean, Integer, SmallInteger, ForeignKey, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
+import uuid
 from app.database import Base
 
 
@@ -120,3 +122,12 @@ class CpmkCplMapping(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cpmk_id: Mapped[int] = mapped_column(Integer, ForeignKey("cpmks.id", ondelete="CASCADE"), nullable=False)
     cpl_id: Mapped[int] = mapped_column(Integer, ForeignKey("cpls.id", ondelete="CASCADE"), nullable=False)
+
+
+class CourseLecturer(Base):
+    """Penugasan dosen pengampu ke mata kuliah (many-to-many)."""
+    __tablename__ = "course_lecturers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

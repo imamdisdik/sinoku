@@ -36,6 +36,7 @@
               <td class="action-cell">
                 <button class="btn-edit" @click="openEdit(c)">Edit</button>
                 <button class="btn-map" :class="{ active: expandedId === c.id }" @click="toggleMapping(c)" title="Kelola Mapping CPL (UC-14e)">CPL</button>
+                <button class="btn-dosen" :class="{ active: expandedDosenId === c.id }" @click="toggleDosen(c)" title="Kelola Dosen Pengampu">Dosen</button>
                 <button class="btn-delete" @click="confirmDelete(c)">Hapus</button>
               </td>
             </tr>
@@ -72,6 +73,41 @@
                         </div>
                         <div class="cpl-desc">{{ cpl.deskripsi_id }}</div>
                         <div class="cpl-desc-zh">{{ cpl.deskripsi_zh }}</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <!-- ── Inline Dosen Pengampu Panel ── -->
+            <tr v-if="expandedDosenId === c.id" class="mapping-row dosen-row">
+              <td colspan="8">
+                <div class="mapping-panel">
+                  <div class="mapping-header">
+                    <div>
+                      <div class="mapping-title dosen-title">Dosen Pengampu &#8594; <strong>{{ c.kode_mk }}</strong> — {{ c.nama_id }}</div>
+                      <div class="mapping-subtitle dosen-subtitle">Pilih dosen program studi yang mengampu mata kuliah ini</div>
+                    </div>
+                    <button class="btn-save-dosen" @click="saveDosen(c.id)" :disabled="dosenSaving">
+                      {{ dosenSaving ? 'Menyimpan...' : 'Simpan Pengampu' }}
+                    </button>
+                  </div>
+                  <div v-if="dosenLoading" class="mapping-empty">Memuat daftar dosen...</div>
+                  <div v-else-if="!availableLecturers.length" class="mapping-empty">
+                    Belum ada akun dosen di program studi ini.
+                    <router-link to="/admin/users" class="link">Tambah akun dosen terlebih dahulu.</router-link>
+                  </div>
+                  <div v-else class="cpl-checklist">
+                    <label
+                      v-for="d in availableLecturers"
+                      :key="d.id"
+                      class="cpl-item dosen-item"
+                      :class="{ checked: selectedLecturerIds.has(d.id) }"
+                    >
+                      <input type="checkbox" :checked="selectedLecturerIds.has(d.id)" @change="toggleLecturer(d.id)" class="cpl-checkbox dosen-checkbox" />
+                      <div class="cpl-info">
+                        <div class="cpl-desc"><strong>{{ d.full_name }}</strong></div>
+                        <div class="cpl-desc-zh">{{ d.email }}</div>
                       </div>
                     </label>
                   </div>
@@ -145,6 +181,7 @@ import {
   getCourses, createCourse, updateCourse, deleteCourse,
   getPrograms, getCpls,
   getCourseCpls, mapCourseCpls, unmapCourseCpl,
+  getCourseLecturers, getAvailableLecturers, assignCourseLecturers, unassignCourseLecturer,
 } from '@/api/admin'
 
 const rows = ref<any[]>([])
@@ -178,6 +215,14 @@ const originalCplIds = ref<Set<number>>(new Set())
 const mappingLoading = ref(false)
 const mappingSaving = ref(false)
 
+// ── Dosen Pengampu state ────────────────────────────────────────────────────
+const expandedDosenId = ref<number | null>(null)
+const availableLecturers = ref<any[]>([])
+const selectedLecturerIds = ref<Set<string>>(new Set())
+const originalLecturerIds = ref<Set<string>>(new Set())
+const dosenLoading = ref(false)
+const dosenSaving = ref(false)
+
 async function fetchData() {
   loading.value = true
   try {
@@ -190,6 +235,9 @@ async function fetchData() {
     total.value = res.data.total
     if (expandedId.value && !rows.value.find((r: any) => r.id === expandedId.value)) {
       expandedId.value = null
+    }
+    if (expandedDosenId.value && !rows.value.find((r: any) => r.id === expandedDosenId.value)) {
+      expandedDosenId.value = null
     }
   } finally { loading.value = false }
 }
@@ -240,6 +288,7 @@ async function doDelete() {
 // ── Mapping CPL (UC-14e) handlers ──────────────────────────────────────────
 async function toggleMapping(course: any) {
   if (expandedId.value === course.id) { expandedId.value = null; return }
+  expandedDosenId.value = null
   expandedId.value = course.id
   mappingLoading.value = true
   selectedCplIds.value = new Set()
@@ -275,6 +324,46 @@ async function saveMapping(courseId: number) {
     originalCplIds.value = new Set(selectedCplIds.value)
   } finally { mappingSaving.value = false }
 }
+
+// ── Dosen Pengampu handlers ─────────────────────────────────────────────────
+async function toggleDosen(course: any) {
+  if (expandedDosenId.value === course.id) { expandedDosenId.value = null; return }
+  expandedId.value = null
+  expandedDosenId.value = course.id
+  dosenLoading.value = true
+  availableLecturers.value = []
+  selectedLecturerIds.value = new Set()
+  originalLecturerIds.value = new Set()
+  try {
+    const [availRes, assignedRes] = await Promise.all([
+      getAvailableLecturers(course.id),
+      getCourseLecturers(course.id),
+    ])
+    availableLecturers.value = availRes.data
+    const assigned: string[] = assignedRes.data.map((d: any) => d.id)
+    selectedLecturerIds.value = new Set(assigned)
+    originalLecturerIds.value = new Set(assigned)
+  } finally { dosenLoading.value = false }
+}
+
+function toggleLecturer(uid: string) {
+  const s = new Set(selectedLecturerIds.value)
+  s.has(uid) ? s.delete(uid) : s.add(uid)
+  selectedLecturerIds.value = s
+}
+
+async function saveDosen(courseId: number) {
+  dosenSaving.value = true
+  try {
+    const toAdd = [...selectedLecturerIds.value].filter(id => !originalLecturerIds.value.has(id))
+    const toRemove = [...originalLecturerIds.value].filter(id => !selectedLecturerIds.value.has(id))
+    const ops: Promise<any>[] = []
+    if (toAdd.length) ops.push(assignCourseLecturers(courseId, toAdd))
+    toRemove.forEach(id => ops.push(unassignCourseLecturer(courseId, id)))
+    await Promise.all(ops)
+    originalLecturerIds.value = new Set(selectedLecturerIds.value)
+  } finally { dosenSaving.value = false }
+}
 </script>
 
 <style scoped>
@@ -302,6 +391,8 @@ async function saveMapping(courseId: number) {
 .btn-edit { background: #ebf8ff; color: #2b6cb0; border: none; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-right: 4px; }
 .btn-map { background: #faf5ff; color: #6b46c1; border: 1px solid #d6bcfa; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-right: 4px; font-weight: 600; }
 .btn-map.active { background: #6b46c1; color: #fff; border-color: #6b46c1; }
+.btn-dosen { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-right: 4px; font-weight: 600; }
+.btn-dosen.active { background: #276749; color: #fff; border-color: #276749; }
 .btn-delete { background: #fff5f5; color: #e53e3e; border: none; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
 .btn-cancel { background: #f7fafc; color: #4a5568; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 /* ── Mapping Panel ── */
@@ -327,6 +418,16 @@ async function saveMapping(courseId: number) {
 .kat-keterampilan { background: #c6f6d5; color: #276749; }
 .cpl-desc { font-size: 12px; color: #2d3748; line-height: 1.4; }
 .cpl-desc-zh { font-size: 11px; color: #718096; margin-top: 2px; }
+/* ── Dosen Pengampu panel (hijau) ── */
+.dosen-row td { background: #f0fff4 !important; border-bottom: 2px solid #9ae6b4 !important; }
+.dosen-title { color: #22543d; }
+.dosen-subtitle { color: #38a169; }
+.btn-save-dosen { background: #276749; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.btn-save-dosen:disabled { opacity: 0.5; cursor: not-allowed; }
+.dosen-item { border-color: #c6f6d5; }
+.dosen-item.checked { border-color: #276749; background: #f0fff4; }
+.dosen-item:hover { border-color: #48bb78; }
+.dosen-checkbox { accent-color: #276749; }
 /* ── Pagination & Modal ── */
 .pagination { display: flex; align-items: center; gap: 12px; padding: 16px 0; font-size: 13px; color: #718096; }
 .pagination button { padding: 6px 12px; border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; cursor: pointer; }

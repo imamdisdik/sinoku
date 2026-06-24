@@ -7,7 +7,8 @@ from app.dependencies import (
     require_admin, require_superadmin, require_superadmin_or_admin,
     is_scoped, program_scope_condition, program_in_scope, assert_program_in_scope,
 )
-from app.models.academic import University, Faculty, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping
+from app.models.academic import University, Faculty, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping, CourseLecturer
+from app.models.auth import User
 from app.models.response import Response
 from app.models.report import DiagnosticReport
 from app.schemas.academic import (
@@ -17,7 +18,7 @@ from app.schemas.academic import (
     CourseCreate, CourseUpdate, CourseOut, PagedCourse,
     CplCreate, CplUpdate, CplOut,
     CpmkCreate, CpmkUpdate, CpmkOut,
-    MappingIds,
+    MappingIds, AssignLecturers,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin-academic"])
@@ -361,6 +362,64 @@ async def unmap_course_cpl(cid: int, cpl_id: int, db: AsyncSession = Depends(get
     if c:
         await assert_program_in_scope(db, current_user, c.program_id)
     await db.execute(delete(CourseCplMapping).where(CourseCplMapping.course_id == cid, CourseCplMapping.cpl_id == cpl_id))
+    await db.commit()
+
+
+# ── Dosen Pengampu MK (course_lecturers) ──────────────────────────────────────
+
+@router.get("/courses/{cid}/lecturers")
+async def get_course_lecturers(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    rows = (await db.execute(
+        select(User.id, User.full_name, User.email)
+        .join(CourseLecturer, CourseLecturer.user_id == User.id)
+        .where(CourseLecturer.course_id == cid)
+        .order_by(User.full_name)
+    )).all()
+    return [{"id": str(r.id), "full_name": r.full_name, "email": r.email} for r in rows]
+
+
+@router.get("/courses/{cid}/available-lecturers")
+async def available_lecturers(cid: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    """Dosen yang boleh diampukan ke MK ini: dosen aktif di prodi MK."""
+    course = await db.get(Course, cid)
+    if not course:
+        raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    rows = (await db.execute(
+        select(User.id, User.full_name, User.email)
+        .where(User.role == "dosen", User.program_id == course.program_id, User.is_active == True)
+        .order_by(User.full_name)
+    )).all()
+    return [{"id": str(r.id), "full_name": r.full_name, "email": r.email} for r in rows]
+
+
+@router.post("/courses/{cid}/lecturers", status_code=201)
+async def assign_course_lecturers(cid: int, body: AssignLecturers, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    course = await db.get(Course, cid)
+    if not course:
+        raise HTTPException(404, "Mata kuliah tidak ditemukan")
+    await assert_program_in_scope(db, current_user, course.program_id)
+    existing = set(str(x) for x in (await db.execute(
+        select(CourseLecturer.user_id).where(CourseLecturer.course_id == cid)
+    )).scalars().all())
+    added = 0
+    for uid in body.user_ids:
+        if uid in existing:
+            continue
+        u = await db.get(User, uid)
+        if not u or u.role != "dosen" or u.program_id != course.program_id:
+            raise HTTPException(400, "Dosen tidak valid untuk prodi mata kuliah ini")
+        db.add(CourseLecturer(course_id=cid, user_id=uid))
+        added += 1
+    await db.commit()
+    return {"assigned": added}
+
+
+@router.delete("/courses/{cid}/lecturers/{user_id}", status_code=204)
+async def unassign_course_lecturer(cid: int, user_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    course = await db.get(Course, cid)
+    if course:
+        await assert_program_in_scope(db, current_user, course.program_id)
+    await db.execute(delete(CourseLecturer).where(CourseLecturer.course_id == cid, CourseLecturer.user_id == user_id))
     await db.commit()
 
 

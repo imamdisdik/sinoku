@@ -35,6 +35,14 @@ export const mapCourseCpls = (courseId: number, cpl_ids: number[]) =>
 export const unmapCourseCpl = (courseId: number, cplId: number) =>
   api.delete(`/admin/courses/${courseId}/cpls/${cplId}`)
 
+// Course ↔ Dosen Pengampu (many-to-many)
+export const getCourseLecturers = (courseId: number) => api.get(`/admin/courses/${courseId}/lecturers`)
+export const getAvailableLecturers = (courseId: number) => api.get(`/admin/courses/${courseId}/available-lecturers`)
+export const assignCourseLecturers = (courseId: number, user_ids: string[]) =>
+  api.post(`/admin/courses/${courseId}/lecturers`, { user_ids })
+export const unassignCourseLecturer = (courseId: number, userId: string) =>
+  api.delete(`/admin/courses/${courseId}/lecturers/${userId}`)
+
 // CPL
 export const getCpls = (params?: object) => api.get('/admin/cpls', { params })
 export const createCpl = (data: object) => api.post('/admin/cpls', data)

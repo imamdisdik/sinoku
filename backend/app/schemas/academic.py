@@ -235,6 +235,16 @@ class MappingIds(BaseModel):
     cpl_ids: List[int]
 
 
+class AssignLecturers(BaseModel):
+    user_ids: List[str]
+
+
+class LecturerOut(BaseModel):
+    id: str
+    full_name: str
+    email: str
+
+
 # ── Pagination wrapper ────────────────────────────────────────────────────────
 class PagedUniversity(BaseModel):
     data: List[UniversityOut]
