@@ -11,9 +11,9 @@
     </main>
   </div>
   <div v-else class="public-layout">
-    <AppNavbar />
+    <AppNavbar v-if="!hideChrome" />
     <router-view />
-    <AppFooter />
+    <AppFooter v-if="!hideChrome" />
   </div>
 </template>
 
@@ -21,13 +21,17 @@
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 import AppSidebar from '@/components/common/AppSidebar.vue'
 import AppNavbar from '@/components/common/AppNavbar.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
 const route = useRoute()
 const ui = useUiStore()
+const auth = useAuthStore()
 const isAdmin = computed(() => route.path.startsWith('/admin'))
+// Sembunyikan navbar/footer publik saat dosen mengisi kuisioner (akses hanya via dashboard)
+const hideChrome = computed(() => auth.isDosen && route.path.startsWith('/survey'))
 // Tutup drawer mobile setiap pindah halaman
 watch(() => route.path, () => ui.closeSidebarMobile())
 </script>

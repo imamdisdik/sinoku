@@ -2,6 +2,7 @@
   <div class="selector-wrap">
     <div class="selector-card">
       <div class="card-header">
+        <router-link to="/admin" class="back-link">&#8592; Kembali ke Dashboard</router-link>
         <h1 class="card-title">Mulai Evaluasi</h1>
         <p class="card-subtitle">Pilih mata kuliah yang akan dievaluasi</p>
       </div>
@@ -93,6 +94,8 @@ async function start() {
 .selector-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; background:#f7fafc; padding:24px }
 .selector-card { background:#fff; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,0.08); padding:40px; width:480px; max-width:100% }
 .card-header { margin-bottom:32px }
+.back-link { display:inline-block; margin-bottom:14px; font-size:13px; color:#3182ce; text-decoration:none }
+.back-link:hover { text-decoration:underline }
 .card-title { font-size:24px; font-weight:700; color:#1a365d; margin-bottom:6px }
 .card-subtitle { color:#718096; font-size:14px }
 .loading-text { color:#718096; text-align:center; padding:20px }
