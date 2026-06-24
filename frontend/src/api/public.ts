@@ -12,6 +12,9 @@ export const publicApi = {
   getCourses: (programId: number) =>
     client.get(`/public/programs/${programId}/courses`),
 
+  getCourseLecturers: (courseId: number) =>
+    client.get(`/public/courses/${courseId}/lecturers`),
+
   startSurvey: (body: Record<string, unknown>) =>
     client.post('/public/survey/start', body),
 

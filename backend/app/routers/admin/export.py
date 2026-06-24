@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import aliased
 from typing import Optional
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -76,11 +77,13 @@ async def export_responses(
     UC-18d: data mentah individual hanya untuk superadmin.
     """
     # Fakultas diturunkan dari MK → prodi → fakultas (berlaku untuk mahasiswa & dosen)
+    Lecturer = aliased(User)
     q = (
-        select(Response, Respondent, Course, Faculty)
+        select(Response, Respondent, Course, Faculty, Lecturer)
         .join(Course, Response.course_id == Course.id)
         .join(Program, Course.program_id == Program.id)
         .outerjoin(Faculty, Program.faculty_id == Faculty.id)
+        .outerjoin(Lecturer, Response.evaluated_lecturer_id == Lecturer.id)
         .where(Response.is_complete == True)
     )
     if is_scoped(current_user):
@@ -94,19 +97,20 @@ async def export_responses(
     rows_db = (await db.execute(q)).all()
 
     headers = [
-        "ID Respons", "Role", "Mata Kuliah", "Fakultas", "Bahasa",
+        "ID Respons", "Role", "Mata Kuliah", "Fakultas", "Dosen Dinilai", "Bahasa",
         "Nama Responden", "Jenis Kelamin", "Usia", "Semester",
         "Lama Belajar Mandarin", "Level HSK", "Pernah ke China",
         "Tanggal Submit",
     ]
     data_rows = []
-    for resp, respondent, course, faculty in rows_db:
+    for resp, respondent, course, faculty, lecturer in rows_db:
         faculty_name = faculty.nama if faculty else (respondent.faculty if respondent else "")
         data_rows.append([
             str(resp.id),
             resp.role,
             f"{course.kode_mk} — {course.nama_id}",
             faculty_name or "",
+            lecturer.full_name if lecturer else "",
             resp.bahasa,
             respondent.full_name if respondent else resp.role,
             respondent.gender if respondent else "",
@@ -231,12 +235,14 @@ async def export_respondents(
 
     UC-18d: data mentah individual hanya untuk superadmin.
     """
+    Lecturer = aliased(User)
     q = (
-        select(Respondent, Response, Course, Faculty)
+        select(Respondent, Response, Course, Faculty, Lecturer)
         .join(Response, Response.respondent_id == Respondent.id)
         .join(Course, Response.course_id == Course.id)
         .join(Program, Course.program_id == Program.id)
         .outerjoin(Faculty, Program.faculty_id == Faculty.id)
+        .outerjoin(Lecturer, Response.evaluated_lecturer_id == Lecturer.id)
         .where(Response.is_complete == True, Response.role == "mahasiswa")
     )
     if is_scoped(current_user):
@@ -248,13 +254,13 @@ async def export_respondents(
 
     headers = [
         "ID Respons", "Nama", "Jenis Kelamin", "Usia", "Semester",
-        "Fakultas", "Lama Belajar Mandarin", "Level HSK",
+        "Fakultas", "Dosen Dinilai", "Lama Belajar Mandarin", "Level HSK",
         "Pernah ke China", "Memiliki Teman Tionghoa",
         "Status MK", "Frekuensi Interaksi Budaya",
         "Mata Kuliah", "Tanggal Submit",
     ]
     data_rows = []
-    for respondent, resp, course, faculty in rows_db:
+    for respondent, resp, course, faculty, lecturer in rows_db:
         faculty_name = faculty.nama if faculty else (respondent.faculty or "")
         data_rows.append([
             str(resp.id),
@@ -263,6 +269,7 @@ async def export_respondents(
             respondent.age or "",
             respondent.current_semester or "",
             faculty_name,
+            lecturer.full_name if lecturer else "",
             respondent.mandarin_study_duration or "",
             respondent.hsk_level_mahasiswa or "",
             respondent.china_stay_duration or "",

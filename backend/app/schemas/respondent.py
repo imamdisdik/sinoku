@@ -24,6 +24,7 @@ class SurveyStartRequest(BaseModel):
     university_id: int
     program_id: Optional[int] = None
     faculty: Optional[str] = None
+    lecturer_id: Optional[str] = None  # dosen pengampu yang dievaluasi (UUID string)
     # Atribut dosen
     academic_position: Optional[str] = None
     teaching_duration: Optional[str] = None

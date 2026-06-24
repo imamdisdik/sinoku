@@ -7,7 +7,7 @@ import hashlib
 from app.database import get_db
 from app.dependencies import get_optional_user
 from app.models.auth import User
-from app.models.academic import University, Faculty, Program, Course
+from app.models.academic import University, Faculty, Program, Course, CourseLecturer
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem, OpenQuestion
 from app.models.respondent import (Respondent, RespondentCourseTaught, RespondentCourseTaken,
                                    RespondentMotivation, RespondentCareerGoal,
@@ -42,6 +42,18 @@ async def list_courses(program_id: int, db: AsyncSession = Depends(get_db)):
         select(Course).where(Course.program_id == program_id, Course.is_active == True)
     )
     return {"data": [CoursePublic.model_validate(c) for c in result.scalars().all()]}
+
+
+@router.get("/courses/{course_id}/lecturers")
+async def list_course_lecturers_public(course_id: int, db: AsyncSession = Depends(get_db)):
+    """Daftar dosen pengampu MK (publik) — untuk mahasiswa memilih dosen yang dievaluasi."""
+    rows = (await db.execute(
+        select(User.id, User.full_name)
+        .join(CourseLecturer, CourseLecturer.user_id == User.id)
+        .where(CourseLecturer.course_id == course_id, User.is_active == True)
+        .order_by(User.full_name)
+    )).all()
+    return {"data": [{"id": str(r.id), "full_name": r.full_name} for r in rows]}
 
 
 @router.post("/survey/start-dosen", response_model=SurveyStartResponse, status_code=201)
@@ -88,6 +100,14 @@ async def start_survey(body: SurveyStartRequest, request: Request, db: AsyncSess
     if not course or not course.is_active:
         raise HTTPException(status_code=404, detail="Mata kuliah tidak ditemukan")
 
+    # Dosen pengampu yang dievaluasi — wajib bila MK punya pengampu
+    valid_lecturers = {str(x) for x in (await db.execute(
+        select(CourseLecturer.user_id).where(CourseLecturer.course_id == body.course_id)
+    )).scalars().all()}
+    if valid_lecturers and (not body.lecturer_id or body.lecturer_id not in valid_lecturers):
+        raise HTTPException(status_code=400, detail="Silakan pilih dosen pengampu yang dievaluasi")
+    chosen_lecturer_id = body.lecturer_id if (valid_lecturers and body.lecturer_id in valid_lecturers) else None
+
     # Fakultas otomatis dari prodi yang dipilih (lewat program.faculty_id);
     # fallback ke teks bebas lama bila prodi belum ditautkan ke fakultas.
     faculty_name = body.faculty
@@ -133,6 +153,7 @@ async def start_survey(body: SurveyStartRequest, request: Request, db: AsyncSess
     response = Response(
         respondent_id=respondent.id, course_id=body.course_id,
         role="mahasiswa", bahasa=body.bahasa, ip_hash=ip_hash,
+        evaluated_lecturer_id=chosen_lecturer_id,
     )
     db.add(response)
     await db.flush()

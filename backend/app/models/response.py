@@ -14,6 +14,8 @@ class Response(Base):
     # dosen: user_id terisi, respondent_id null
     respondent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("respondents.id", ondelete="RESTRICT"), nullable=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # Mahasiswa: dosen pengampu yang sedang dievaluasi (bila MK punya pengampu)
+    evaluated_lecturer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
     instrument_version: Mapped[str] = mapped_column(String(20), default="1.0")
     role: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -23,7 +25,8 @@ class Response(Base):
     ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     respondent: Mapped["Respondent | None"] = relationship("Respondent", back_populates="responses")
-    user: Mapped["User | None"] = relationship("User")
+    user: Mapped["User | None"] = relationship("User", foreign_keys=[user_id])
+    evaluated_lecturer: Mapped["User | None"] = relationship("User", foreign_keys=[evaluated_lecturer_id])
     course: Mapped["Course"] = relationship("Course", back_populates="responses")
     items: Mapped[list["ResponseItem"]] = relationship("ResponseItem", back_populates="response", cascade="all, delete-orphan")
     open_answers: Mapped[list["ResponseOpenAnswer"]] = relationship("ResponseOpenAnswer", back_populates="response", cascade="all, delete-orphan")

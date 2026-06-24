@@ -23,9 +23,17 @@
 
       <div class="form-group" v-if="courses.length">
         <label class="form-label">{{ t('survey.select_course') }} *</label>
-        <select class="form-select" v-model="survey.selectedCourse">
+        <select class="form-select" v-model="survey.selectedCourse" @change="onCourseChange">
           <option :value="null">{{ t('common.placeholder_select') }}</option>
           <option v-for="c in courses" :key="c.id" :value="c">{{ c.kode_mk }} — {{ survey.selectedBahasa === 'zh' ? c.nama_zh : c.nama_id }}</option>
+        </select>
+      </div>
+
+      <div class="form-group" v-if="survey.selectedCourse && lecturers.length">
+        <label class="form-label">Dosen Pengampu yang Dievaluasi *</label>
+        <select class="form-select" v-model="survey.selectedLecturerId">
+          <option :value="null">{{ t('common.placeholder_select') }}</option>
+          <option v-for="d in lecturers" :key="d.id" :value="d.id">{{ d.full_name }}</option>
         </select>
       </div>
 
@@ -74,9 +82,11 @@ const survey = useSurveyStore()
 const universities = ref<University[]>([])
 const programs = ref<Program[]>([])
 const courses = ref<Course[]>([])
+const lecturers = ref<{ id: string; full_name: string }[]>([])
 
 const canProceed = computed(() =>
-  !!survey.selectedUniversity && !!survey.selectedProgram && !!survey.selectedCourse
+  !!survey.selectedUniversity && !!survey.selectedProgram && !!survey.selectedCourse &&
+  (lecturers.value.length === 0 || !!survey.selectedLecturerId)
 )
 
 onMounted(async () => {
@@ -98,10 +108,20 @@ async function onUnivChange() {
 
 async function onProgramChange() {
   survey.selectedCourse = null
+  survey.selectedLecturerId = null
   courses.value = []
+  lecturers.value = []
   if (!survey.selectedProgram) return
   const { data } = await publicApi.getCourses(survey.selectedProgram.id)
   courses.value = data.data
+}
+
+async function onCourseChange() {
+  survey.selectedLecturerId = null
+  lecturers.value = []
+  if (!survey.selectedCourse) return
+  const { data } = await publicApi.getCourseLecturers(survey.selectedCourse.id)
+  lecturers.value = data.data
 }
 
 function proceed() {

@@ -332,6 +332,7 @@ async function submit() {
       bahasa: survey.selectedBahasa,
       university_id: survey.selectedUniversity.id,
       program_id: survey.selectedProgram?.id ?? null,
+      lecturer_id: survey.selectedLecturerId,
       // Identitas
       full_name: form.value.full_name || null,
       faculty: form.value.faculty || null,

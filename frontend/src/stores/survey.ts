@@ -17,6 +17,7 @@ export const useSurveyStore = defineStore('survey', () => {
   const selectedUniversity = ref<University | null>(null)
   const selectedProgram = ref<Program | null>(null)
   const selectedCourse = ref<Course | null>(null)
+  const selectedLecturerId = ref<string | null>(null)
   const selectedRole = ref<'dosen' | 'mahasiswa'>('mahasiswa')
   const selectedBahasa = ref<'id' | 'zh'>('id')
 
@@ -91,6 +92,7 @@ export const useSurveyStore = defineStore('survey', () => {
     selectedUniversity.value = null
     selectedProgram.value = null
     selectedCourse.value = null
+    selectedLecturerId.value = null
     selectedRole.value = 'mahasiswa'
     selectedBahasa.value = 'id'
     Object.keys(answers).forEach(k => delete answers[Number(k)])
@@ -100,7 +102,7 @@ export const useSurveyStore = defineStore('survey', () => {
 
   return {
     currentStep, responseId, respondentId, anonymousCode, isDosen,
-    selectedUniversity, selectedProgram, selectedCourse, selectedRole, selectedBahasa,
+    selectedUniversity, selectedProgram, selectedCourse, selectedLecturerId, selectedRole, selectedBahasa,
     answers, openAnswers, stepData,
     setAnswer, setOpenAnswer, getAnswersForStep, getOpenAnswersForSubmit,
     goToStep, nextStep, prevStep, reset, initFromServer,
