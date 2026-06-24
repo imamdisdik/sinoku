@@ -40,10 +40,6 @@
               <option v-for="s in 14" :key="s" :value="s">Semester {{ s }}</option>
             </select>
           </div>
-          <div class="form-group" style="grid-column:1/-1">
-            <label class="form-label">Fakultas <span class="opt">(opsional)</span></label>
-            <input v-model="form.faculty" class="form-input" placeholder="Contoh: Fakultas Ilmu Budaya" />
-          </div>
         </div>
       </div>
 

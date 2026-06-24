@@ -13,7 +13,7 @@ from app.models.auth import User
 from app.models.response import Response, ResponseItem
 from app.models.respondent import Respondent
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem
-from app.models.academic import Course, Program
+from app.models.academic import Course, Program, Faculty
 
 router = APIRouter(prefix="/admin/export", tags=["admin-export"])
 
@@ -75,13 +75,16 @@ async def export_responses(
 
     UC-18d: data mentah individual hanya untuk superadmin.
     """
-    q = select(Response, Respondent, Course).where(Response.is_complete == True)
+    # Fakultas diturunkan dari MK → prodi → fakultas (berlaku untuk mahasiswa & dosen)
+    q = (
+        select(Response, Respondent, Course, Faculty)
+        .join(Course, Response.course_id == Course.id)
+        .join(Program, Course.program_id == Program.id)
+        .outerjoin(Faculty, Program.faculty_id == Faculty.id)
+        .where(Response.is_complete == True)
+    )
     if is_scoped(current_user):
-        q = q.join(Course, Response.course_id == Course.id).join(
-            Program, Course.program_id == Program.id
-        ).where(program_scope_condition(current_user))
-    else:
-        q = q.join(Course, Response.course_id == Course.id)
+        q = q.where(program_scope_condition(current_user))
     q = q.outerjoin(Respondent, Response.respondent_id == Respondent.id)
     if course_id:
         q = q.where(Response.course_id == course_id)
@@ -91,17 +94,19 @@ async def export_responses(
     rows_db = (await db.execute(q)).all()
 
     headers = [
-        "ID Respons", "Role", "Mata Kuliah", "Bahasa",
+        "ID Respons", "Role", "Mata Kuliah", "Fakultas", "Bahasa",
         "Nama Responden", "Jenis Kelamin", "Usia", "Semester",
         "Lama Belajar Mandarin", "Level HSK", "Pernah ke China",
         "Tanggal Submit",
     ]
     data_rows = []
-    for resp, respondent, course in rows_db:
+    for resp, respondent, course, faculty in rows_db:
+        faculty_name = faculty.nama if faculty else (respondent.faculty if respondent else "")
         data_rows.append([
             str(resp.id),
             resp.role,
             f"{course.kode_mk} — {course.nama_id}",
+            faculty_name or "",
             resp.bahasa,
             respondent.full_name if respondent else resp.role,
             respondent.gender if respondent else "",
@@ -227,13 +232,15 @@ async def export_respondents(
     UC-18d: data mentah individual hanya untuk superadmin.
     """
     q = (
-        select(Respondent, Response, Course)
+        select(Respondent, Response, Course, Faculty)
         .join(Response, Response.respondent_id == Respondent.id)
         .join(Course, Response.course_id == Course.id)
+        .join(Program, Course.program_id == Program.id)
+        .outerjoin(Faculty, Program.faculty_id == Faculty.id)
         .where(Response.is_complete == True, Response.role == "mahasiswa")
     )
     if is_scoped(current_user):
-        q = q.join(Program, Course.program_id == Program.id).where(program_scope_condition(current_user))
+        q = q.where(program_scope_condition(current_user))
     if course_id:
         q = q.where(Response.course_id == course_id)
     q = q.order_by(Response.submitted_at.desc())
@@ -247,14 +254,15 @@ async def export_respondents(
         "Mata Kuliah", "Tanggal Submit",
     ]
     data_rows = []
-    for respondent, resp, course in rows_db:
+    for respondent, resp, course, faculty in rows_db:
+        faculty_name = faculty.nama if faculty else (respondent.faculty or "")
         data_rows.append([
             str(resp.id),
             respondent.full_name or "(anonim)",
             respondent.gender or "",
             respondent.age or "",
             respondent.current_semester or "",
-            respondent.faculty or "",
+            faculty_name,
             respondent.mandarin_study_duration or "",
             respondent.hsk_level_mahasiswa or "",
             respondent.china_stay_duration or "",

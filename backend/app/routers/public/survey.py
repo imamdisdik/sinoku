@@ -7,7 +7,7 @@ import hashlib
 from app.database import get_db
 from app.dependencies import get_optional_user
 from app.models.auth import User
-from app.models.academic import University, Program, Course
+from app.models.academic import University, Faculty, Program, Course
 from app.models.instrument import CippDimension, CippSubDimension, InstrumentItem, OpenQuestion
 from app.models.respondent import (Respondent, RespondentCourseTaught, RespondentCourseTaken,
                                    RespondentMotivation, RespondentCareerGoal,
@@ -88,9 +88,19 @@ async def start_survey(body: SurveyStartRequest, request: Request, db: AsyncSess
     if not course or not course.is_active:
         raise HTTPException(status_code=404, detail="Mata kuliah tidak ditemukan")
 
+    # Fakultas otomatis dari prodi yang dipilih (lewat program.faculty_id);
+    # fallback ke teks bebas lama bila prodi belum ditautkan ke fakultas.
+    faculty_name = body.faculty
+    if body.program_id:
+        program = await db.get(Program, body.program_id)
+        if program and program.faculty_id:
+            fac = await db.get(Faculty, program.faculty_id)
+            if fac:
+                faculty_name = fac.nama
+
     respondent = Respondent(
         role="mahasiswa", full_name=body.full_name, university_id=body.university_id,
-        program_id=body.program_id, faculty=body.faculty,
+        program_id=body.program_id, faculty=faculty_name,
         academic_position=body.academic_position, teaching_duration=body.teaching_duration,
         education_level=body.education_level, china_experience_dosen=body.china_experience_dosen,
         hsk_level_dosen=body.hsk_level_dosen, avg_class_size=body.avg_class_size,
