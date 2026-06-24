@@ -52,9 +52,10 @@
             <td class="meta-cell">{{ u.last_login ? formatDate(u.last_login) : 'Belum pernah' }}</td>
             <td>
               <button class="btn-edit" @click="openEdit(u)">Edit</button>
-              <button :class="u.is_active ? 'btn-delete' : 'btn-activate'" @click="doToggle(u)">
+              <button :class="u.is_active ? 'btn-toggle-off' : 'btn-activate'" @click="doToggle(u)">
                 {{ u.is_active ? 'Nonaktifkan' : 'Aktifkan' }}
               </button>
+              <button class="btn-delete" @click="confirmDelete(u)">Hapus</button>
             </td>
           </tr>
         </tbody>
@@ -120,6 +121,21 @@
         </form>
       </div>
     </div>
+
+    <!-- Confirm Hapus -->
+    <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm=false">
+      <div class="modal modal-sm">
+        <h2 class="modal-title">Hapus Akun?</h2>
+        <p class="confirm-text">
+          Yakin hapus akun <strong>{{ deleteTarget?.full_name }}</strong> ({{ deleteTarget?.email }})?<br>
+          ⚠️ Tindakan ini <strong>permanen</strong>. Penugasan dosen pengampu & sesi login akun ini akan ikut terhapus.
+        </p>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="showConfirm=false">Batal</button>
+          <button class="btn-delete" @click="doDelete" :disabled="saving">Hapus</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -128,7 +144,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { getUsers, createUser, updateUser, toggleUserActive, getUniversities, getFaculties, getPrograms } from '@/api/admin'
+import { getUsers, createUser, updateUser, toggleUserActive, deleteUser, getUniversities, getFaculties, getPrograms } from '@/api/admin'
 
 const auth = useAuthStore()
 const { user, role: myRole, isSuperadmin, isAdminUniversitas, isAdminFakultas } = storeToRefs(auth)
@@ -150,6 +166,8 @@ const programList = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const showModal = ref(false)
+const showConfirm = ref(false)
+const deleteTarget = ref<any>(null)
 const editing = ref<any>(null)
 const filterRole = ref('')
 const filterActive = ref('')
@@ -266,6 +284,20 @@ async function save() {
   } finally { saving.value = false }
 }
 
+function confirmDelete(u: any) { deleteTarget.value = u; showConfirm.value = true }
+
+async function doDelete() {
+  saving.value = true
+  try {
+    await deleteUser(deleteTarget.value.id)
+    showConfirm.value = false
+    ui.showToast('Akun dihapus', 'success')
+    await fetchData()
+  } catch (e: any) {
+    ui.showToast(e.response?.data?.detail || 'Gagal menghapus', 'error')
+  } finally { saving.value = false }
+}
+
 async function doToggle(u: any) {
   try {
     await toggleUserActive(u.id)
@@ -310,9 +342,12 @@ onMounted(async () => {
 .btn-edit { background:#ebf8ff; color:#2b6cb0; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer; margin-right:4px }
 .btn-delete { background:#fff5f5; color:#e53e3e; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer }
 .btn-activate { background:#f0fff4; color:#276749; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer }
+.btn-toggle-off { background:#fffaf0; color:#b7791f; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer; margin-right:4px }
 .btn-cancel { background:#f7fafc; color:#4a5568; border:1px solid #e2e8f0; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer }
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:200 }
 .modal { background:#fff; border-radius:12px; padding:28px; width:540px; max-width:95vw; max-height:90vh; overflow-y:auto }
+.modal-sm { width:400px }
+.confirm-text { font-size:14px; color:#4a5568; margin-bottom:20px; line-height:1.6 }
 .modal-title { font-size:18px; font-weight:700; color:#1a365d; margin-bottom:20px }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px }
 .form-group { display:flex; flex-direction:column; gap:6px }

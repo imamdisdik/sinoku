@@ -70,6 +70,7 @@ export const getUsers = (params?: object) => api.get('/admin/users', { params })
 export const createUser = (data: object) => api.post('/admin/users', data)
 export const updateUser = (id: string, data: object) => api.put(`/admin/users/${id}`, data)
 export const toggleUserActive = (id: string) => api.patch(`/admin/users/${id}/toggle`)
+export const deleteUser = (id: string) => api.delete(`/admin/users/${id}`)
 
 // Analytics
 export const getAnalyticsComparison = (params?: object) => api.get('/admin/analytics/comparison', { params })

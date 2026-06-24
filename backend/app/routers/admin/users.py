@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 from typing import Optional
 from app.database import get_db
 from app.dependencies import require_admin, require_superadmin_or_admin
 from app.models.auth import User
+from app.models.report import DiagnosticReport
 from app.schemas.auth import UserOut, UserCreate, UserUpdate, PagedUsers
 from app.core.security import hash_password
 
@@ -174,3 +175,27 @@ async def toggle_user_active(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.delete("/{uid}", status_code=204)
+async def delete_user(
+    uid: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_superadmin_or_admin),
+):
+    user = await db.get(User, uid)
+    if not user or user.role == "superadmin":
+        raise HTTPException(404, "User tidak ditemukan")
+    if not _user_in_scope(current_user, user):
+        raise HTTPException(403, "Akses ditolak")
+    if str(user.id) == str(current_user.id):
+        raise HTTPException(400, "Tidak bisa menghapus akun sendiri")
+    # Laporan diagnostik ber-FK RESTRICT pada generated_by → alihkan ke admin penghapus
+    # agar laporan tetap utuh. Relasi lain (sesi, dosen pengampu) cascade; RPS/respons SET NULL.
+    await db.execute(
+        update(DiagnosticReport)
+        .where(DiagnosticReport.generated_by == user.id)
+        .values(generated_by=current_user.id)
+    )
+    await db.delete(user)
+    await db.commit()
