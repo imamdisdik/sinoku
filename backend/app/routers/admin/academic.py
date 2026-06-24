@@ -423,6 +423,18 @@ async def unassign_course_lecturer(cid: int, user_id: str, db: AsyncSession = De
     await db.commit()
 
 
+@router.get("/my-courses", response_model=list[CourseOut])
+async def my_taught_courses(db: AsyncSession = Depends(get_db), current_user=Depends(require_admin)):
+    """MK yang diampu oleh dosen yang sedang login (untuk evaluasi dosen)."""
+    rows = (await db.execute(
+        select(Course)
+        .join(CourseLecturer, CourseLecturer.course_id == Course.id)
+        .where(CourseLecturer.user_id == current_user.id, Course.is_active == True)
+        .order_by(Course.kode_mk)
+    )).scalars().all()
+    return rows
+
+
 # ══════════════ CPL ═══════════════════════════════════════════════════════════
 
 @router.get("/cpls", response_model=list[CplOut])

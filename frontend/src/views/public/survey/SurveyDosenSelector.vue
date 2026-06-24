@@ -16,7 +16,7 @@
             <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
           </select>
           <p v-if="!courses.length && !loadingCourses" class="form-hint warning">
-            Tidak ada mata kuliah untuk program studi Anda. Hubungi admin.
+            Anda belum ditugaskan sebagai dosen pengampu mata kuliah apa pun. Hubungi admin prodi.
           </p>
         </div>
 
@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getCourses } from '@/api/admin'
+import { getMyCourses } from '@/api/admin'
 import { publicApi } from '@/api/public'
 import { useSurveyStore } from '@/stores/survey'
 
@@ -63,7 +63,7 @@ const errorMsg = ref('')
 
 onMounted(async () => {
   try {
-    const res = await getCourses({ limit: 200 })
+    const res = await getMyCourses()
     courses.value = res.data.data ?? res.data
   } catch {
     errorMsg.value = 'Gagal memuat mata kuliah'

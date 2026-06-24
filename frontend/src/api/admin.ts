@@ -35,6 +35,9 @@ export const mapCourseCpls = (courseId: number, cpl_ids: number[]) =>
 export const unmapCourseCpl = (courseId: number, cplId: number) =>
   api.delete(`/admin/courses/${courseId}/cpls/${cplId}`)
 
+// MK yang diampu dosen yang login (untuk evaluasi dosen)
+export const getMyCourses = () => api.get('/admin/my-courses')
+
 // Course ↔ Dosen Pengampu (many-to-many)
 export const getCourseLecturers = (courseId: number) => api.get(`/admin/courses/${courseId}/lecturers`)
 export const getAvailableLecturers = (courseId: number) => api.get(`/admin/courses/${courseId}/available-lecturers`)
