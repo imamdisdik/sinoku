@@ -13,6 +13,10 @@ export async function authGuard(
   // Token ada di localStorage tapi store sudah load dari localStorage (via loadUser()),
   // jadi isLoggedIn sudah true jika user dan token sama-sama ada.
   if (auth.isLoggedIn) {
+    // Dosen hanya untuk evaluasi — tidak boleh masuk area admin
+    if (to.path.startsWith('/admin') && auth.user?.role === 'dosen') {
+      return next({ name: 'survey-dosen' })
+    }
     // Cek role jika route mensyaratkan role tertentu
     const requiredRole = to.meta.requiresRole as string | undefined
     if (requiredRole && auth.user?.role !== requiredRole) {
@@ -27,6 +31,9 @@ export async function authGuard(
     try {
       await auth.refreshAccessToken()
       if (auth.isLoggedIn) {
+        if (to.path.startsWith('/admin') && auth.user?.role === 'dosen') {
+          return next({ name: 'survey-dosen' })
+        }
         const requiredRole = to.meta.requiresRole as string | undefined
         if (requiredRole && auth.user?.role !== requiredRole) {
           return next({ name: 'dashboard' })

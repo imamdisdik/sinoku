@@ -44,7 +44,10 @@ async function doLogin() {
   error.value = ''
   try {
     await auth.login(email.value, password.value)
-    const redirect = (route.query.redirect as string) || '/admin'
+    // Dosen hanya untuk evaluasi → langsung ke halaman dosen (abaikan redirect ke /admin)
+    const redirect = auth.isDosen
+      ? '/survey/dosen'
+      : ((route.query.redirect as string) || '/admin')
     router.push(redirect)
   } catch (e: any) {
     error.value = e.response?.data?.detail || t('common.error')

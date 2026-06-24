@@ -12,6 +12,10 @@
         <RouterLink to="/login" class="navbar__link navbar__link--cta" v-if="!auth.isLoggedIn">
           {{ t('nav.login') }}
         </RouterLink>
+        <template v-else-if="auth.isDosen">
+          <RouterLink to="/survey/dosen" class="navbar__link navbar__link--cta">Isi Evaluasi</RouterLink>
+          <button class="navbar__link navbar__logout" @click="doLogout">{{ t('auth.logout') }}</button>
+        </template>
         <RouterLink to="/admin" class="navbar__link navbar__link--cta" v-else>Dashboard</RouterLink>
         <LanguageToggle />
       </div>
@@ -21,11 +25,18 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LanguageToggle from './LanguageToggle.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const router = useRouter()
+
+async function doLogout() {
+  await auth.logout()
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -45,4 +56,6 @@ const auth = useAuthStore()
 .navbar__link:hover, .navbar__link.router-link-active { background: rgba(255,255,255,.1); color: #fff; }
 .navbar__link--cta { background: #3182ce; color: #fff !important; }
 .navbar__link--cta:hover { background: #2c5282 !important; }
+.navbar__logout { background: transparent; border: 1px solid rgba(255,255,255,.3); cursor: pointer; }
+.navbar__logout:hover { background: rgba(255,255,255,.1); }
 </style>
