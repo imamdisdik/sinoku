@@ -47,12 +47,5 @@
   /* ── Kartu umum (login, survei, dll.) ── */
   .card { padding: 20px !important; }
 
-  /* ── Navbar publik: biarkan menumpuk, jangan terpotong ── */
-  .navbar__inner {
-    height: auto !important;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 8px 0;
-  }
-  .navbar__links { flex-wrap: wrap; }
+  /* (Navbar publik mobile ditangani sendiri via hamburger di AppNavbar.vue) */
 }
