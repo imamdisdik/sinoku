@@ -5,7 +5,7 @@
       <button class="btn-primary" @click="openCreate">+ Tambah</button>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" v-if="isSuperadmin">
       <select v-model="filterUniv" @change="page=1; fetchData()" class="search-input">
         <option value="">Semua Universitas</option>
         <option v-for="u in univList" :key="u.id" :value="u.id">{{ u.nama_singkat }} — {{ u.nama }}</option>
@@ -43,11 +43,15 @@
         <h2 class="modal-title">{{ editing ? 'Edit' : 'Tambah' }} Fakultas</h2>
         <form @submit.prevent="save">
           <div class="form-grid">
-            <div class="form-group" style="grid-column:1/-1" v-if="!editing">
+            <div class="form-group" style="grid-column:1/-1" v-if="!editing && isSuperadmin">
               <label>Universitas *</label>
               <select v-model.number="form.university_id" required class="form-input">
                 <option v-for="u in univList" :key="u.id" :value="u.id">{{ u.nama }}</option>
               </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1" v-else-if="!editing">
+              <label>Universitas</label>
+              <input :value="ownUnivName" disabled class="form-input" />
             </div>
             <div class="form-group" style="grid-column:1/-1">
               <label>Nama Fakultas *</label>
@@ -85,7 +89,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import { getFaculties, createFaculty, updateFaculty, deleteFaculty, getUniversities } from '@/api/admin'
+
+const { user, isSuperadmin } = storeToRefs(useAuthStore())
 
 const rows = ref<any[]>([])
 const univList = ref<any[]>([])
@@ -100,8 +108,9 @@ const showModal = ref(false)
 const showConfirm = ref(false)
 const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
-const defaultForm = () => ({ university_id: 0, nama: '', nama_singkat: '', rumpun_keilmuan: '' })
+const defaultForm = () => ({ university_id: isSuperadmin.value ? 0 : (user.value?.university_id ?? 0), nama: '', nama_singkat: '', rumpun_keilmuan: '' })
 const form = ref(defaultForm())
+const ownUnivName = computed(() => univList.value.find((u: any) => u.id === user.value?.university_id)?.nama ?? '—')
 
 async function fetchData() {
   loading.value = true

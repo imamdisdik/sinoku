@@ -5,7 +5,7 @@
       <button class="btn-primary" @click="openCreate">+ Tambah</button>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" v-if="isSuperadmin">
       <select v-model="filterUniv" @change="page=1; fetchData()" class="search-input">
         <option value="">Semua Universitas</option>
         <option v-for="u in univList" :key="u.id" :value="u.id">{{ u.nama_singkat }} — {{ u.nama }}</option>
@@ -43,11 +43,15 @@
         <h2 class="modal-title">{{ editing ? 'Edit' : 'Tambah' }} Program Studi</h2>
         <form @submit.prevent="save">
           <div class="form-grid">
-            <div class="form-group" style="grid-column:1/-1">
+            <div class="form-group" style="grid-column:1/-1" v-if="isSuperadmin">
               <label>Universitas *</label>
               <select v-model.number="form.university_id" required class="form-input">
                 <option v-for="u in univList" :key="u.id" :value="u.id">{{ u.nama }}</option>
               </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1" v-else>
+              <label>Universitas</label>
+              <input :value="ownUnivName" disabled class="form-input" />
             </div>
             <div class="form-group" style="grid-column:1/-1">
               <label>Fakultas</label>
@@ -102,7 +106,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import { getPrograms, createProgram, updateProgram, deleteProgram, getUniversities, getFaculties } from '@/api/admin'
+
+const { user, isSuperadmin } = storeToRefs(useAuthStore())
 
 const rows = ref<any[]>([])
 const univList = ref<any[]>([])
@@ -118,8 +126,9 @@ const showModal = ref(false)
 const showConfirm = ref(false)
 const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
-const defaultForm = () => ({ university_id: 0, faculty_id: null as number|null, nama: '', nama_singkat: '', jenjang: 'S1', tahun_berdiri: null as number|null, akreditasi: '' })
+const defaultForm = () => ({ university_id: isSuperadmin.value ? 0 : (user.value?.university_id ?? 0), faculty_id: null as number|null, nama: '', nama_singkat: '', jenjang: 'S1', tahun_berdiri: null as number|null, akreditasi: '' })
 const form = ref(defaultForm())
+const ownUnivName = computed(() => univList.value.find((u: any) => u.id === user.value?.university_id)?.nama ?? '—')
 function facultiesFor(univId: number) {
   return facList.value.filter(f => f.university_id === univId)
 }

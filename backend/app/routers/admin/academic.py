@@ -32,9 +32,12 @@ async def list_universities(
     search: Optional[str] = None,
     is_active: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     q = select(University)
+    # Scoping: non-superadmin hanya melihat universitasnya sendiri
+    if current_user.role != "superadmin" and current_user.university_id:
+        q = q.where(University.id == current_user.university_id)
     if search:
         q = q.where(or_(University.nama.ilike(f"%{search}%"), University.nama_singkat.ilike(f"%{search}%")))
     if is_active is not None:
