@@ -13,7 +13,7 @@
           <label class="form-label">Mata Kuliah *</label>
           <select v-model.number="selectedCourse" required class="form-select">
             <option :value="null" disabled>— Pilih Mata Kuliah —</option>
-            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode }} — {{ c.nama }}</option>
+            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
           </select>
           <p v-if="!courses.length && !loadingCourses" class="form-hint warning">
             Tidak ada mata kuliah untuk program studi Anda. Hubungi admin.
