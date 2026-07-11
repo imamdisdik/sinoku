@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, update
+from sqlalchemy import select, func, or_, update, delete
 from typing import Optional
 from app.database import get_db
 from app.dependencies import require_admin, require_superadmin_or_admin
 from app.models.auth import User
 from app.models.report import DiagnosticReport
+from app.models.response import Response
+from app.models.academic import CourseLecturer
 from app.schemas.auth import UserOut, UserCreate, UserUpdate, PagedUsers
 from app.core.security import hash_password
 
@@ -191,11 +193,18 @@ async def delete_user(
     if str(user.id) == str(current_user.id):
         raise HTTPException(400, "Tidak bisa menghapus akun sendiri")
     # Laporan diagnostik ber-FK RESTRICT pada generated_by → alihkan ke admin penghapus
-    # agar laporan tetap utuh. Relasi lain (sesi, dosen pengampu) cascade; RPS/respons SET NULL.
+    # agar laporan tetap utuh.
     await db.execute(
         update(DiagnosticReport)
         .where(DiagnosticReport.generated_by == user.id)
         .values(generated_by=current_user.id)
     )
+    # Lepas kaitan yang bisa menghalangi penghapusan (defensif, tak bergantung ON DELETE DB):
+    # - respons yang menilai dosen ini → kosongkan penanda dosen dinilai
+    await db.execute(
+        update(Response).where(Response.evaluated_lecturer_id == user.id).values(evaluated_lecturer_id=None)
+    )
+    # - penugasan dosen pengampu MK
+    await db.execute(delete(CourseLecturer).where(CourseLecturer.user_id == user.id))
     await db.delete(user)
     await db.commit()

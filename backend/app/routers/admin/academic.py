@@ -10,6 +10,7 @@ from app.dependencies import (
 from app.models.academic import University, Faculty, Program, Course, Cpl, Cpmk, CourseCplMapping, CpmkCplMapping, CourseLecturer
 from app.models.auth import User
 from app.models.response import Response
+from app.models.respondent import Respondent
 from app.models.report import DiagnosticReport
 from app.schemas.academic import (
     UniversityCreate, UniversityUpdate, UniversityOut, PagedUniversity, LogoUpdate,
@@ -82,6 +83,17 @@ async def delete_university(uid: int, db: AsyncSession = Depends(get_db), _=Depe
     u = await db.get(University, uid)
     if not u:
         raise HTTPException(404, "Universitas tidak ditemukan")
+    # Hapus data ber-FK RESTRICT dulu agar universitas bisa dihapus.
+    # Sisanya (fakultas, prodi, MK, CPL/CPMK, RPS, skema, MBKM) ikut via ON DELETE CASCADE.
+    course_ids = select(Course.id).join(Program, Course.program_id == Program.id).where(Program.university_id == uid)
+    resp_ids = select(Respondent.id).where(Respondent.university_id == uid)
+    # 1) Laporan diagnostik universitas ini
+    await db.execute(delete(DiagnosticReport).where(DiagnosticReport.university_id == uid))
+    # 2) Respons evaluasi (cascade ke item/jawaban/kode anonim) — via MK atau responden univ ini
+    await db.execute(delete(Response).where(or_(Response.course_id.in_(course_ids), Response.respondent_id.in_(resp_ids))))
+    # 3) Profil responden universitas ini
+    await db.execute(delete(Respondent).where(Respondent.university_id == uid))
+    # 4) Universitas → kaskade fakultas/prodi/MK/CPL/CPMK/RPS/skema/MBKM
     await db.delete(u)
     await db.commit()
 

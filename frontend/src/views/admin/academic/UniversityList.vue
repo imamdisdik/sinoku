@@ -111,7 +111,7 @@
     <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm=false">
       <div class="modal modal-sm">
         <h2 class="modal-title">Hapus Universitas?</h2>
-        <p class="confirm-text">Yakin ingin menghapus <strong>{{ deleteTarget?.nama }}</strong>? Tindakan ini tidak dapat dibatalkan.</p>
+        <p class="confirm-text">Yakin hapus <strong>{{ deleteTarget?.nama }}</strong>?<br>⚠️ <strong>Semua data di bawahnya ikut terhapus permanen</strong>: fakultas, prodi, mata kuliah, CPL/CPMK, RPS, penilaian/MBKM, serta <strong>responden, respons evaluasi, kode anonim & laporan</strong>. Tidak dapat dibatalkan.</p>
         <div class="modal-actions">
           <button class="btn-cancel" @click="showConfirm=false">Batal</button>
           <button class="btn-delete" @click="doDelete" :disabled="saving">Hapus</button>
