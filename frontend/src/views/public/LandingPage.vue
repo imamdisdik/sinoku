@@ -83,7 +83,9 @@ onMounted(async () => {
 
 <style scoped>
 .hero {
-  background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+  background:
+    linear-gradient(135deg, rgba(26,54,93,.85) 0%, rgba(43,108,176,.78) 100%),
+    url('/background.jpeg') center / cover no-repeat;
   color: #fff; padding: 80px 0 60px;
 }
 .hero__content { text-align: center; }
