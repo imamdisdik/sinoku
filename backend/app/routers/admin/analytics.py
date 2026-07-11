@@ -21,6 +21,8 @@ def _base_response_ids_query(
     periode_end: Optional[date] = None,
     university_id: Optional[int] = None,
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    lecturer_id: Optional[str] = None,
 ):
     q = select(Response.id).where(
         Response.is_complete == True,
@@ -33,10 +35,13 @@ def _base_response_ids_query(
         q = q.where(func.date(Response.submitted_at) >= periode_start)
     if periode_end:
         q = q.where(func.date(Response.submitted_at) <= periode_end)
+    # Filter per dosen yang dinilai (hanya berlaku pada respons mahasiswa)
+    if lecturer_id:
+        q = q.where(Response.evaluated_lecturer_id == lecturer_id)
 
-    # F-07.3: filter global univ/prodi (untuk superadmin) + scoping per peran.
+    # F-07.3: filter global univ/prodi/fakultas (untuk superadmin) + scoping per peran.
     scoped = is_scoped(current_user)
-    if scoped or university_id or program_id:
+    if scoped or university_id or program_id or faculty_id:
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
         )
@@ -46,6 +51,8 @@ def _base_response_ids_query(
             q = q.where(Program.university_id == university_id)
         if program_id:
             q = q.where(Course.program_id == program_id)
+        if faculty_id:
+            q = q.where(Program.faculty_id == faculty_id)
     return q
 
 
@@ -110,15 +117,17 @@ async def comparison(
     periode_end: Optional[date] = None,
     university_id: Optional[int] = None,
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    lecturer_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Skor rata-rata per dimensi CIPP, dipisah antara dosen dan mahasiswa."""
     ids_dosen = (await db.execute(
-        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end, university_id, program_id)
+        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end, university_id, program_id, faculty_id, lecturer_id)
     )).scalars().all()
     ids_mhs = (await db.execute(
-        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end, university_id, program_id)
+        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end, university_id, program_id, faculty_id, lecturer_id)
     )).scalars().all()
 
     dims = (await db.execute(
@@ -155,15 +164,17 @@ async def distribution(
     periode_end: Optional[date] = None,
     university_id: Optional[int] = None,
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    lecturer_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Distribusi frekuensi skor Likert 1–5 per dimensi, dipisah dosen vs mahasiswa."""
     ids_dosen = (await db.execute(
-        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end, university_id, program_id)
+        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end, university_id, program_id, faculty_id, lecturer_id)
     )).scalars().all()
     ids_mhs = (await db.execute(
-        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end, university_id, program_id)
+        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end, university_id, program_id, faculty_id, lecturer_id)
     )).scalars().all()
 
     if dimensi:
@@ -280,15 +291,17 @@ async def cipp_scores(
     periode_end: Optional[date] = None,
     university_id: Optional[int] = None,
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    lecturer_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Skor rata-rata CIPP per dimensi beserta breakdown per sub-dimensi."""
     ids_dosen = (await db.execute(
-        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end, university_id, program_id)
+        _base_response_ids_query("dosen", course_id, current_user, periode_start, periode_end, university_id, program_id, faculty_id, lecturer_id)
     )).scalars().all()
     ids_mhs = (await db.execute(
-        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end, university_id, program_id)
+        _base_response_ids_query("mahasiswa", course_id, current_user, periode_start, periode_end, university_id, program_id, faculty_id, lecturer_id)
     )).scalars().all()
 
     if role == "dosen":

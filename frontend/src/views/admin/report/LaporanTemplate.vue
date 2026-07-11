@@ -4,7 +4,7 @@
     <div class="page-header no-print">
       <h1 class="page-title">Laporan Template CIPP</h1>
       <div class="filter-bar">
-        <select v-model.number="courseId" class="inp">
+        <select v-model.number="courseId" class="inp" @change="onCourseChange">
           <option :value="null">— Pilih Mata Kuliah —</option>
           <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
         </select>
@@ -12,6 +12,10 @@
           <option value="semua">Mahasiswa &amp; Dosen</option>
           <option value="mahasiswa">Mahasiswa</option>
           <option value="dosen">Dosen</option>
+        </select>
+        <select v-if="courseId && lecturers.length" v-model="lecturerId" class="inp" title="Filter dosen pengampu yang dinilai (respons mahasiswa)">
+          <option :value="null">Semua Dosen</option>
+          <option v-for="d in lecturers" :key="d.id" :value="d.id">{{ d.full_name }}</option>
         </select>
         <input type="date" v-model="periodeStart" class="inp" title="Periode mulai" />
         <input type="date" v-model="periodeEnd" class="inp" title="Periode akhir" />
@@ -89,13 +93,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUiStore } from '@/stores/ui'
-import { getCourses, getMyCourses, getTemplateReportData } from '@/api/admin'
+import { getCourses, getMyCourses, getCourseLecturers, getTemplateReportData } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
 
 const ui = useUiStore()
 const auth = useAuthStore()
 const courses = ref<any[]>([])
 const courseId = ref<number | null>(null)
+const lecturers = ref<any[]>([])
+const lecturerId = ref<string | null>(null)
 const role = ref('semua')
 const periodeStart = ref('2025-01-01')
 const periodeEnd = ref('2026-12-31')
@@ -128,6 +134,7 @@ async function generate() {
     const res = await getTemplateReportData({
       course_id: courseId.value, role: role.value,
       periode_start: periodeStart.value, periode_end: periodeEnd.value,
+      lecturer_id: lecturerId.value || undefined,
     })
     data.value = res.data
     if (!res.data.identitas.jumlah_responden) ui.showToast('Tidak ada respons pada filter ini', 'warning')
@@ -137,6 +144,16 @@ async function generate() {
 }
 
 function printReport() { window.print() }
+
+async function onCourseChange() {
+  lecturerId.value = null
+  lecturers.value = []
+  if (!courseId.value) return
+  try {
+    const res = await getCourseLecturers(courseId.value)
+    lecturers.value = res.data
+  } catch { lecturers.value = [] }
+}
 
 onMounted(async () => {
   try {

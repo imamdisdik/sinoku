@@ -401,6 +401,7 @@ async def template_report_data(
     periode_start: date,
     periode_end: date,
     role: str = "semua",  # mahasiswa | dosen | semua
+    lecturer_id: Optional[str] = None,  # filter dosen pengampu yang dinilai (respons mahasiswa)
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -426,6 +427,8 @@ async def template_report_data(
     )
     if role in ("mahasiswa", "dosen"):
         q = q.where(Response.role == role)
+    if lecturer_id:
+        q = q.where(Response.evaluated_lecturer_id == lecturer_id)
     responses = (await db.execute(q)).scalars().all()
     resp_ids = [r.id for r in responses]
 

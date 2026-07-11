@@ -16,9 +16,17 @@
             <option v-for="p in filteredPrograms" :key="p.id" :value="p.id">{{ p.nama_singkat }}</option>
           </select>
         </template>
+        <select v-if="isSuperadmin || isAdminUniversitas" v-model.number="filters.faculty_id" @change="fetchAll" class="filter-select" title="Filter fakultas">
+          <option :value="null">Semua Fakultas</option>
+          <option v-for="f in faculties" :key="f.id" :value="f.id">{{ f.nama_singkat }}</option>
+        </select>
         <select v-model.number="filters.course_id" @change="fetchAll" class="filter-select">
           <option :value="null">Semua Mata Kuliah</option>
           <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode }} — {{ c.nama }}</option>
+        </select>
+        <select v-model="filters.lecturer_id" @change="fetchAll" class="filter-select" title="Filter dosen pengampu yang dinilai (respons mahasiswa)">
+          <option :value="null">Semua Dosen</option>
+          <option v-for="d in lecturers" :key="d.id" :value="d.id">{{ d.full_name }}</option>
         </select>
         <select v-model="filters.role" @change="fetchAll" class="filter-select" title="Filter peran responden">
           <option value="">Semua Peran</option>
@@ -27,7 +35,7 @@
         </select>
         <input type="date" v-model="filters.periode_start" @change="fetchAll" class="filter-select" title="Periode mulai" />
         <input type="date" v-model="filters.periode_end" @change="fetchAll" class="filter-select" title="Periode akhir" />
-        <button v-if="filters.course_id || filters.university_id || filters.program_id || filters.role || filters.periode_start || filters.periode_end" @click="resetFilters" class="filter-reset" title="Reset filter">✕ Reset</button>
+        <button v-if="filters.course_id || filters.university_id || filters.program_id || filters.faculty_id || filters.lecturer_id || filters.role || filters.periode_start || filters.periode_end" @click="resetFilters" class="filter-reset" title="Reset filter">✕ Reset</button>
         <select v-model="activeTab" class="filter-select">
           <option value="overview">Ringkasan CIPP</option>
           <option value="cipp-scores">Skor Sub-Dimensi</option>
@@ -382,9 +390,9 @@ import { storeToRefs } from 'pinia'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useAuthStore } from '@/stores/auth'
-import { getDashboardKpi, getProblemHeatmap, getCourses, getUniversities, getPrograms, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix, getAnalyticsComparisonGroups } from '@/api/admin'
+import { getDashboardKpi, getProblemHeatmap, getCourses, getUniversities, getPrograms, getFaculties, getUsers, getAnalyticsComparison, getAnalyticsDistribution, getAnalyticsCippScores, getAnalyticsCplCpmkMatrix, getAnalyticsComparisonGroups } from '@/api/admin'
 
-const { isSuperadmin } = storeToRefs(useAuthStore())
+const { isSuperadmin, isAdminUniversitas } = storeToRefs(useAuthStore())
 
 const loading = ref(true)
 const loadingComparison = ref(false)
@@ -397,12 +405,16 @@ const filters = ref({
   course_id: null as number | null,
   university_id: null as number | null,
   program_id: null as number | null,
+  faculty_id: null as number | null,
+  lecturer_id: null as string | null,
   role: '' as '' | 'dosen' | 'mahasiswa',
   periode_start: '' as string,
   periode_end: '' as string,
 })
 const universities = ref<any[]>([])
 const programs = ref<any[]>([])
+const faculties = ref<any[]>([])
+const lecturers = ref<any[]>([])
 const filteredPrograms = computed(() =>
   filters.value.university_id
     ? programs.value.filter((p: any) => p.university_id === filters.value.university_id)
@@ -414,6 +426,8 @@ function globalParams(extra: Record<string, any> = {}) {
   if (filters.value.course_id) p.course_id = filters.value.course_id
   if (filters.value.university_id) p.university_id = filters.value.university_id
   if (filters.value.program_id) p.program_id = filters.value.program_id
+  if (filters.value.faculty_id) p.faculty_id = filters.value.faculty_id
+  if (filters.value.lecturer_id) p.lecturer_id = filters.value.lecturer_id
   if (filters.value.role) p.role = filters.value.role
   if (filters.value.periode_start) p.periode_start = filters.value.periode_start
   if (filters.value.periode_end) p.periode_end = filters.value.periode_end
@@ -424,7 +438,7 @@ function onUnivChange() {
   fetchAll()
 }
 function resetFilters() {
-  filters.value = { course_id: null, university_id: null, program_id: null, role: '', periode_start: '', periode_end: '' }
+  filters.value = { course_id: null, university_id: null, program_id: null, faculty_id: null, lecturer_id: null, role: '', periode_start: '', periode_end: '' }
   fetchAll()
 }
 const matrixCourseId = ref<number | null>(null)
@@ -656,6 +670,13 @@ onMounted(async () => {
     universities.value = u.data.data ?? []
     programs.value = p.data.data ?? []
   }
+  // Fakultas (untuk superadmin & admin universitas) + daftar dosen (semua admin)
+  if (isSuperadmin.value || isAdminUniversitas.value) {
+    const f = await getFaculties({ limit: 500 }).catch(() => ({ data: { data: [] } }))
+    faculties.value = f.data.data ?? []
+  }
+  const dsn = await getUsers({ role: 'dosen', limit: 500 }).catch(() => ({ data: { data: [] } }))
+  lecturers.value = dsn.data.data ?? []
   await fetchAll()
 })
 </script>

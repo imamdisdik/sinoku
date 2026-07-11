@@ -14,10 +14,12 @@ from app.models.academic import University, Program, Course
 router = APIRouter(prefix="/admin/dashboard", tags=["admin-dashboard"])
 
 
-def _scope_responses(q, current_user: User, university_id=None, program_id=None):
-    """Filter response berdasarkan scope role + filter eksplisit univ/prodi (F-07.3)."""
+def _scope_responses(q, current_user: User, university_id=None, program_id=None, faculty_id=None, lecturer_id=None):
+    """Filter response berdasarkan scope role + filter eksplisit univ/prodi/fakultas/dosen (F-07.3)."""
+    if lecturer_id:
+        q = q.where(Response.evaluated_lecturer_id == lecturer_id)
     scoped = is_scoped(current_user)
-    if scoped or university_id or program_id:
+    if scoped or university_id or program_id or faculty_id:
         q = q.join(Course, Response.course_id == Course.id).join(
             Program, Course.program_id == Program.id
         )
@@ -27,6 +29,8 @@ def _scope_responses(q, current_user: User, university_id=None, program_id=None)
             q = q.where(Program.university_id == university_id)
         if program_id:
             q = q.where(Course.program_id == program_id)
+        if faculty_id:
+            q = q.where(Program.faculty_id == faculty_id)
     return q
 
 
@@ -37,11 +41,13 @@ async def dashboard_kpi(
     periode_end: Optional[date] = None,
     university_id: Optional[int] = None,
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    lecturer_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     q_resp = select(Response).where(Response.is_complete == True)
-    q_resp = _scope_responses(q_resp, current_user, university_id, program_id)
+    q_resp = _scope_responses(q_resp, current_user, university_id, program_id, faculty_id, lecturer_id)
 
     if course_id:
         q_resp = q_resp.where(Response.course_id == course_id)
