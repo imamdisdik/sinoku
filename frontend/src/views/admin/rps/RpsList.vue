@@ -6,10 +6,7 @@
     </div>
 
     <div class="toolbar">
-      <select v-model.number="filterCourse" @change="fetchData" class="filter-input">
-        <option :value="null">Semua Mata Kuliah</option>
-        <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
-      </select>
+      <ScopeFilter show-course @change="onScope" />
       <select v-model="filterStatus" @change="fetchData" class="filter-input">
         <option value="">Semua Status</option>
         <option value="draft">Draft</option>
@@ -108,20 +105,23 @@ import { useUiStore } from '@/stores/ui'
 import { getRpsList, createRps, updateRps, deleteRps, getCourses, getMyCourses } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
 import Pagination from '@/components/common/Pagination.vue'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 import { usePagination } from '@/composables/usePagination'
 
 const router = useRouter()
 const ui = useUiStore()
 const auth = useAuthStore()
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 const rows = ref<any[]>([])
 const { page, totalPages, paged } = usePagination(rows, 15)
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
+function onScope(s: Scope) { scope.value = s; fetchData() }
 const courses = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const showModal = ref(false)
 const editing = ref<any>(null)
-const filterCourse = ref<number | null>(null)
 const filterStatus = ref('')
 
 const defaultForm = () => ({ course_id: null as number | null, tahun_akademik: '', semester: 'Ganjil', status: 'draft', file_url: '', catatan: '' })
@@ -142,7 +142,10 @@ async function fetchData() {
   loading.value = true
   try {
     const params: any = {}
-    if (filterCourse.value) params.course_id = filterCourse.value
+    if (scope.value.course_id) params.course_id = scope.value.course_id
+    else if (scope.value.program_id) params.program_id = scope.value.program_id
+    else if (scope.value.faculty_id) params.faculty_id = scope.value.faculty_id
+    else if (scope.value.university_id) params.university_id = scope.value.university_id
     if (filterStatus.value) params.status = filterStatus.value
     const res = await getRpsList(params)
     rows.value = res.data

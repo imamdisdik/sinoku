@@ -7,14 +7,11 @@
 
     <!-- Filter -->
     <div class="toolbar">
-      <select v-model.number="filterCourse" @change="fetchData" class="filter-input">
-        <option :value="null">Semua Mata Kuliah</option>
-        <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
-      </select>
+      <ScopeFilter show-course @change="onScope" />
     </div>
 
     <!-- Bobot total indicator -->
-    <div v-if="filterCourse && rows.length" class="bobot-bar">
+    <div v-if="scope.course_id && rows.length" class="bobot-bar">
       <span>Total bobot:</span>
       <span :class="['bobot-val', totalBobot > 100 ? 'bobot-over' : totalBobot === 100 ? 'bobot-ok' : 'bobot-warn']">
         {{ totalBobot.toFixed(1) }}%
@@ -194,10 +191,12 @@ import {
   getCourses, getCpmks,
 } from '@/api/admin'
 import Pagination from '@/components/common/Pagination.vue'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 import { usePagination } from '@/composables/usePagination'
 
 const ui = useUiStore()
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 // ── State Skema ────────────────────────────────────────────────────────────
 const rows = ref<any[]>([])
 const { page, totalPages, paged } = usePagination(rows, 15)
@@ -207,7 +206,8 @@ const loading = ref(true)
 const saving = ref(false)
 const showModal = ref(false)
 const editing = ref<any>(null)
-const filterCourse = ref<number | null>(null)
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
+function onScope(s: Scope) { scope.value = s; fetchData() }
 
 const tipeOptions = ['UTS', 'UAS', 'Tugas', 'Praktikum', 'Proyek', 'Kuis', 'Presentasi', 'Lainnya']
 const levelOptions = ['A (Sangat Baik)', 'B (Baik)', 'C (Cukup)', 'D (Kurang)', 'E (Sangat Kurang)']
@@ -223,7 +223,7 @@ const form = ref(defaultForm())
 
 const totalBobot = computed(() =>
   rows.value
-    .filter(r => !filterCourse.value || r.course_id === filterCourse.value)
+    .filter(r => !scope.value.course_id || r.course_id === scope.value.course_id)
     .reduce((s, r) => s + Number(r.bobot_persen), 0)
 )
 
@@ -251,7 +251,10 @@ async function fetchData() {
   loading.value = true
   try {
     const params: any = {}
-    if (filterCourse.value) params.course_id = filterCourse.value
+    if (scope.value.course_id) params.course_id = scope.value.course_id
+    else if (scope.value.program_id) params.program_id = scope.value.program_id
+    else if (scope.value.faculty_id) params.faculty_id = scope.value.faculty_id
+    else if (scope.value.university_id) params.university_id = scope.value.university_id
     const res = await getSchemes(params)
     rows.value = res.data
     page.value = 1
@@ -261,7 +264,7 @@ async function fetchData() {
 function openCreate() {
   editing.value = null
   form.value = defaultForm()
-  if (filterCourse.value) form.value.course_id = filterCourse.value
+  if (scope.value.course_id) form.value.course_id = scope.value.course_id
   showModal.value = true
 }
 function openEdit(r: any) {

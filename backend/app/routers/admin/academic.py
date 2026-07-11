@@ -529,15 +529,30 @@ async def delete_cpl(cid: int, db: AsyncSession = Depends(get_db), current_user=
 @router.get("/cpmks", response_model=list[CpmkOut])
 async def list_cpmks(
     course_id: Optional[int] = None,
+    program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_admin),
 ):
     q = select(Cpmk)
+    joined = False
     # Scoping: tiap peran hanya lihat CPMK dalam cakupannya (via join course→program)
     if is_scoped(current_user):
         q = q.join(Course, Cpmk.course_id == Course.id).join(
             Program, Course.program_id == Program.id
         ).where(program_scope_condition(current_user))
+        joined = True
+    if program_id or faculty_id or university_id:
+        if not joined:
+            q = q.join(Course, Cpmk.course_id == Course.id).join(Program, Course.program_id == Program.id)
+            joined = True
+        if program_id:
+            q = q.where(Course.program_id == program_id)
+        if faculty_id:
+            q = q.where(Program.faculty_id == faculty_id)
+        if university_id:
+            q = q.where(Program.university_id == university_id)
     if course_id:
         q = q.where(Cpmk.course_id == course_id)
     rows = (await db.execute(q)).scalars().all()

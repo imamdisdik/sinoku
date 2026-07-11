@@ -137,14 +137,33 @@ def _scope_mbkm(q, current_user: User):
 
 # ══════════════ ASSESSMENT SCHEME (UC-14j) ════════════════════════════════════
 
+def _course_ids_for(program_id=None, faculty_id=None, university_id=None):
+    """Subquery id MK sesuai filter prodi/fakultas/universitas (untuk drill-down)."""
+    sub = select(Course.id)
+    if faculty_id or university_id:
+        sub = sub.join(Program, Course.program_id == Program.id)
+    if program_id:
+        sub = sub.where(Course.program_id == program_id)
+    if faculty_id:
+        sub = sub.where(Program.faculty_id == faculty_id)
+    if university_id:
+        sub = sub.where(Program.university_id == university_id)
+    return sub
+
+
 @router.get("/schemes", response_model=list[SchemeOut])
 async def list_schemes(
     course_id: Optional[int] = None,
+    program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     q = select(AssessmentScheme)
     q = _scope_scheme(q, current_user)
+    if program_id or faculty_id or university_id:
+        q = q.where(AssessmentScheme.course_id.in_(_course_ids_for(program_id, faculty_id, university_id)))
     if course_id:
         q = q.where(AssessmentScheme.course_id == course_id)
     rows = (await db.execute(q.order_by(AssessmentScheme.tipe, AssessmentScheme.nama_komponen))).scalars().all()
@@ -276,12 +295,17 @@ async def delete_rubric(
 @router.get("/mbkm", response_model=list[MbkmOut])
 async def list_mbkm(
     course_id: Optional[int] = None,
+    program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     is_active: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     q = select(MbkmIntegration)
     q = _scope_mbkm(q, current_user)
+    if program_id or faculty_id or university_id:
+        q = q.where(MbkmIntegration.course_id.in_(_course_ids_for(program_id, faculty_id, university_id)))
     if course_id:
         q = q.where(MbkmIntegration.course_id == course_id)
     if is_active is not None:

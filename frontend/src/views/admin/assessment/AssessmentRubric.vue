@@ -7,11 +7,8 @@
 
     <!-- Filter -->
     <div class="toolbar">
-      <select v-model.number="filterCourse" @change="onCourseChange" class="filter-input">
-        <option :value="null">— Pilih Mata Kuliah —</option>
-        <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
-      </select>
-      <select v-model.number="filterScheme" @change="fetchData" class="filter-input" :disabled="!filterCourse">
+      <ScopeFilter show-course @change="onScope" />
+      <select v-model.number="filterScheme" @change="fetchData" class="filter-input" :disabled="!scope.course_id">
         <option :value="null">— Pilih Skema —</option>
         <option v-for="s in schemes" :key="s.id" :value="s.id">{{ s.nama_komponen }} ({{ s.tipe }})</option>
       </select>
@@ -110,9 +107,11 @@ import {
   getRubrics, createRubric, updateRubric, deleteRubric,
   getSchemes, getCourses, getCpmks,
 } from '@/api/admin'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 
 const ui = useUiStore()
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 const rows = ref<any[]>([])
 const courses = ref<any[]>([])
 const schemes = ref<any[]>([])
@@ -121,7 +120,7 @@ const loading = ref(false)
 const saving = ref(false)
 const showModal = ref(false)
 const editing = ref<any>(null)
-const filterCourse = ref<number | null>(null)
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
 const filterScheme = ref<number | null>(null)
 
 const levelOptions = ['A (Sangat Baik)', 'B (Baik)', 'C (Cukup)', 'D (Kurang)', 'E (Sangat Kurang)']
@@ -148,11 +147,12 @@ function levelBadge(l: string) {
   return 'badge-e'
 }
 
-async function onCourseChange() {
+async function onScope(s: Scope) {
+  scope.value = s
   filterScheme.value = null
   rows.value = []
-  if (!filterCourse.value) { schemes.value = []; return }
-  const res = await getSchemes({ course_id: filterCourse.value }).catch(() => ({ data: [] }))
+  if (!s.course_id) { schemes.value = []; return }
+  const res = await getSchemes({ course_id: s.course_id }).catch(() => ({ data: [] }))
   schemes.value = res.data
 }
 

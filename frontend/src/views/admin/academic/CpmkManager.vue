@@ -6,22 +6,20 @@
     </div>
 
     <div class="toolbar">
-      <select v-model="filterCourse" @change="fetchData" class="search-input">
-        <option value="">Semua Mata Kuliah</option>
-        <option v-for="c in courseList" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
-      </select>
+      <ScopeFilter show-course @change="onScope" />
     </div>
 
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>Kode CPMK</th><th>Deskripsi (ID)</th><th>Deskripsi (中文)</th><th>Bobot (%)</th><th>Status</th><th>Aksi</th></tr>
+          <tr><th>Mata Kuliah</th><th>Kode CPMK</th><th>Deskripsi (ID)</th><th>Deskripsi (中文)</th><th>Bobot (%)</th><th>Status</th><th>Aksi</th></tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
-          <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data CPMK.</td></tr>
+          <tr v-if="loading"><td colspan="7" class="center">Memuat...</td></tr>
+          <tr v-else-if="!rows.length"><td colspan="7" class="center">Belum ada data CPMK.</td></tr>
           <template v-for="c in paged" :key="c.id">
             <tr :class="{ 'row-active': expandedId === c.id }">
+              <td class="text-muted">{{ courseName(c.course_id) }}</td>
               <td><span class="badge">{{ c.kode_cpmk }}</span></td>
               <td>{{ c.deskripsi_id }}</td>
               <td class="text-muted">{{ c.deskripsi_zh }}</td>
@@ -35,7 +33,7 @@
             </tr>
             <!-- ── Inline CPMK→CPL Mapping Panel (UC-14g) ── -->
             <tr v-if="expandedId === c.id" class="mapping-row">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="mapping-panel">
                   <div class="mapping-header">
                     <div>
@@ -138,14 +136,21 @@ import {
   getCpmkCpls, mapCpmkCpls, unmapCpmkCpl,
 } from '@/api/admin'
 import Pagination from '@/components/common/Pagination.vue'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 import { usePagination } from '@/composables/usePagination'
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 const rows = ref<any[]>([])
 const { page, totalPages, paged } = usePagination(rows, 15)
 const courseList = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
-const filterCourse = ref<number | ''>('')
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
+function onScope(s: Scope) { scope.value = s; fetchData() }
+function courseName(id: number) {
+  const c = courseList.value.find((x: any) => x.id === id)
+  return c ? `${c.kode_mk}` : `MK #${id}`
+}
 
 const showModal = ref(false)
 const showConfirm = ref(false)
@@ -153,7 +158,7 @@ const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
 
 const defaultForm = () => ({
-  course_id: (filterCourse.value as number) || 0,
+  course_id: scope.value.course_id || 0,
   kode_cpmk: '', deskripsi_id: '', deskripsi_zh: '', bobot_persen: 0,
 })
 const form = ref(defaultForm())
@@ -168,16 +173,21 @@ const mappingSaving = ref(false)
 
 // Resolve program_id dari course yang sedang dipilih di filter
 const activeProgramId = computed<number | null>(() => {
-  if (!filterCourse.value) return null
-  const found = courseList.value.find((c: any) => c.id === filterCourse.value)
+  if (scope.value.program_id) return scope.value.program_id
+  if (!scope.value.course_id) return null
+  const found = courseList.value.find((c: any) => c.id === scope.value.course_id)
   return found?.program_id ?? null
 })
 
 async function fetchData() {
   loading.value = true
   try {
-    // "Semua Mata Kuliah" (filter kosong) → ambil semua CPMK; jika dipilih → filter per MK
-    const params = filterCourse.value ? { course_id: filterCourse.value } : {}
+    // Drill-down: MK → per MK; Prodi → seluruh MK prodi; Fakultas → seluruh fakultas; dst.
+    const params: any = {}
+    if (scope.value.course_id) params.course_id = scope.value.course_id
+    else if (scope.value.program_id) params.program_id = scope.value.program_id
+    else if (scope.value.faculty_id) params.faculty_id = scope.value.faculty_id
+    else if (scope.value.university_id) params.university_id = scope.value.university_id
     const res = await getCpmks(params)
     rows.value = res.data
     page.value = 1

@@ -104,12 +104,26 @@ def _scope_course(q, current_user: User):
 @router.get("", response_model=list[RpsOut])
 async def list_rps(
     course_id: Optional[int] = None,
+    program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     q = select(RpsVersion)
     q = _scope_course(q, current_user)
+    if program_id or faculty_id or university_id:
+        sub = select(Course.id)
+        if faculty_id or university_id:
+            sub = sub.join(Program, Course.program_id == Program.id)
+        if program_id:
+            sub = sub.where(Course.program_id == program_id)
+        if faculty_id:
+            sub = sub.where(Program.faculty_id == faculty_id)
+        if university_id:
+            sub = sub.where(Program.university_id == university_id)
+        q = q.where(RpsVersion.course_id.in_(sub))
     if course_id:
         q = q.where(RpsVersion.course_id == course_id)
     if status:

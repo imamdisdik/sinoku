@@ -98,6 +98,11 @@ onMounted(async () => {
     if (showFaculty.value) await loadFaculties()
     if (showProgram.value) await loadPrograms()
   }
+  // Prodi terkunci (admin_prodi/dosen) + butuh level MK → muat MK prodinya
+  if (showCourseSel.value && !showProgram.value && user.value?.program_id) {
+    pid.value = user.value.program_id
+    await loadCourses()
+  }
 })
 </script>
 
