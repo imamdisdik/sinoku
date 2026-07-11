@@ -494,6 +494,7 @@ async def template_report_data(
     return {
         "identitas": {
             "universitas": university.nama if university else "-",
+            "logo_url": university.logo_url if university else None,
             "program_studi": program.nama if program else "-",
             "mata_kuliah": f"{course.kode_mk} — {course.nama_id}",
             "semester": course.semester,

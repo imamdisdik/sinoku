@@ -4,6 +4,7 @@ export interface University {
   nama_singkat: string
   kota: string
   provinsi: string
+  logo_url?: string | null
 }
 
 export interface Faculty {

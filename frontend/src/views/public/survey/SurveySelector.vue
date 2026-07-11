@@ -1,6 +1,9 @@
 <template>
   <div class="container" style="max-width:600px; padding-top:40px;">
     <div class="card">
+      <div v-if="survey.selectedUniversity?.logo_url" style="text-align:center; margin-bottom:16px;">
+        <img :src="survey.selectedUniversity.logo_url" style="max-height:64px; max-width:180px; object-fit:contain;" alt="Logo Universitas" />
+      </div>
       <h1 style="font-size:20px; font-weight:800; margin:0 0 24px; color:#1a365d;">
         {{ t('survey.select_title') }}
       </h1>

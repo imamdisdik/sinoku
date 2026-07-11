@@ -27,6 +27,7 @@
     <!-- Dokumen Laporan -->
     <div v-else class="doc" id="laporan-doc">
       <div class="doc-head">
+        <img v-if="data.identitas.logo_url" :src="data.identitas.logo_url" class="doc-logo" alt="Logo" />
         <h2>LAPORAN MONITORING DAN EVALUASI<br />PEMBELAJARAN KEBUDAYAAN TIONGKOK</h2>
         <p class="doc-sub">Berbasis model CIPP — Sistem Evaluasi SINOKU</p>
       </div>
@@ -183,6 +184,7 @@ onMounted(async () => {
 .center-msg{background:#fff;border-radius:10px;padding:48px;text-align:center;color:#718096;box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .doc{background:#fff;border-radius:10px;padding:40px;box-shadow:0 1px 3px rgba(0,0,0,.08);max-width:900px;margin:0 auto;color:#1a202c}
 .doc-head{text-align:center;border-bottom:3px solid #1a365d;padding-bottom:16px;margin-bottom:24px}
+.doc-logo{max-height:64px;max-width:180px;object-fit:contain;margin-bottom:10px}
 .doc-head h2{font-size:18px;color:#1a365d;margin:0;line-height:1.4}
 .doc-sub{font-size:12px;color:#718096;margin:8px 0 0}
 .sec{font-size:15px;color:#1a365d;margin:28px 0 10px;border-left:4px solid #3182ce;padding-left:10px}
