@@ -183,6 +183,7 @@ async def list_programs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=500),
     university_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_admin),
@@ -193,6 +194,8 @@ async def list_programs(
         q = q.where(program_scope_condition(current_user))
     elif university_id:
         q = q.where(Program.university_id == university_id)
+    if faculty_id:
+        q = q.where(Program.faculty_id == faculty_id)
     if search:
         q = q.where(Program.nama.ilike(f"%{search}%"))
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar()
@@ -259,6 +262,8 @@ async def list_courses(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=500),
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     semester: Optional[int] = None,
     search: Optional[str] = None,
     is_active: Optional[bool] = None,
@@ -266,9 +271,19 @@ async def list_courses(
     current_user=Depends(require_admin),
 ):
     q = select(Course)
+    joined_program = False
     # Scoping: tiap peran hanya lihat MK dalam cakupannya (via join program)
     if is_scoped(current_user):
         q = q.join(Program, Course.program_id == Program.id).where(program_scope_condition(current_user))
+        joined_program = True
+    if faculty_id or university_id:
+        if not joined_program:
+            q = q.join(Program, Course.program_id == Program.id)
+            joined_program = True
+        if faculty_id:
+            q = q.where(Program.faculty_id == faculty_id)
+        if university_id:
+            q = q.where(Program.university_id == university_id)
     if program_id:
         q = q.where(Course.program_id == program_id)
     if semester:
@@ -440,14 +455,26 @@ async def my_taught_courses(db: AsyncSession = Depends(get_db), current_user=Dep
 @router.get("/cpls", response_model=list[CplOut])
 async def list_cpls(
     program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     kategori: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_admin),
 ):
     q = select(Cpl)
+    joined_program = False
     # Scoping: tiap peran hanya lihat CPL dalam cakupannya (via join program)
     if is_scoped(current_user):
         q = q.join(Program, Cpl.program_id == Program.id).where(program_scope_condition(current_user))
+        joined_program = True
+    if faculty_id or university_id:
+        if not joined_program:
+            q = q.join(Program, Cpl.program_id == Program.id)
+            joined_program = True
+        if faculty_id:
+            q = q.where(Program.faculty_id == faculty_id)
+        if university_id:
+            q = q.where(Program.university_id == university_id)
     if program_id:
         q = q.where(Cpl.program_id == program_id)
     if kategori:

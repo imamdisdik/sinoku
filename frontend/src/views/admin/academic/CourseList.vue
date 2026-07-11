@@ -6,10 +6,7 @@
     </div>
 
     <div class="toolbar">
-      <select v-model="filterProgram" @change="page=1; fetchData()" class="search-input">
-        <option value="">Semua Program Studi</option>
-        <option v-for="p in programList" :key="p.id" :value="p.id">{{ p.nama_singkat }} — {{ p.nama }}</option>
-      </select>
+      <ScopeFilter @change="onScope" />
       <input v-model="search" placeholder="Cari nama / kode MK..." class="search-input ml-8" @input="fetchData" />
     </div>
 
@@ -183,13 +180,16 @@ import {
   getCourseCpls, mapCourseCpls, unmapCourseCpl,
   getCourseLecturers, getAvailableLecturers, assignCourseLecturers, unassignCourseLecturer,
 } from '@/api/admin'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 const rows = ref<any[]>([])
 const programList = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const search = ref('')
-const filterProgram = ref<number | ''>('')
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
+function onScope(s: Scope) { scope.value = s; page.value = 1; fetchData() }
 const page = ref(1)
 const total = ref(0)
 const limit = 20
@@ -201,7 +201,7 @@ const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
 
 const defaultForm = () => ({
-  program_id: (filterProgram.value as number) || 0,
+  program_id: scope.value.program_id || 0,
   kode_mk: '', nama_id: '', nama_zh: '',
   sks: 3, semester: 1, status_mk: 'wajib', deskripsi: '',
 })
@@ -228,7 +228,9 @@ async function fetchData() {
   try {
     const res = await getCourses({
       page: page.value, limit,
-      program_id: filterProgram.value || undefined,
+      program_id: scope.value.program_id || undefined,
+      faculty_id: scope.value.program_id ? undefined : (scope.value.faculty_id || undefined),
+      university_id: (scope.value.program_id || scope.value.faculty_id) ? undefined : (scope.value.university_id || undefined),
       search: search.value || undefined,
     })
     rows.value = res.data.data

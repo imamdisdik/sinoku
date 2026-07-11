@@ -6,10 +6,7 @@
     </div>
 
     <div class="toolbar">
-      <select v-model="filterProgram" @change="fetchData" class="search-input">
-        <option value="">Semua Program Studi</option>
-        <option v-for="p in programList" :key="p.id" :value="p.id">{{ p.nama_singkat }} — {{ p.nama }}</option>
-      </select>
+      <ScopeFilter @change="onScope" />
     </div>
 
     <div class="table-wrap">
@@ -91,21 +88,24 @@
 import { ref, onMounted } from 'vue'
 import { getCpls, createCpl, updateCpl, deleteCpl, getPrograms } from '@/api/admin'
 import Pagination from '@/components/common/Pagination.vue'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 import { usePagination } from '@/composables/usePagination'
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 const rows = ref<any[]>([])
 const { page, totalPages, paged } = usePagination(rows, 15)
 const programList = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
-const filterProgram = ref<number|''>('')
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
+function onScope(s: Scope) { scope.value = s; fetchData() }
 const showModal = ref(false)
 const showConfirm = ref(false)
 const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
 // Auto-fill program_id dari filter yang aktif
 const defaultForm = () => ({
-  program_id: (filterProgram.value as number) || 0,
+  program_id: scope.value.program_id || 0,
   kode_cpl: '', deskripsi_id: '', deskripsi_zh: '', kategori: 'pengetahuan',
 })
 const form = ref(defaultForm())
@@ -113,8 +113,11 @@ const form = ref(defaultForm())
 async function fetchData() {
   loading.value = true
   try {
-    // "Semua Program Studi" (filter kosong) → ambil semua CPL; jika dipilih → filter per prodi
-    const params = filterProgram.value ? { program_id: filterProgram.value } : {}
+    // Filter drill-down: Prodi → per prodi; Fakultas → seluruh prodi fakultas; Univ → seluruh univ
+    const params: any = {}
+    if (scope.value.program_id) params.program_id = scope.value.program_id
+    else if (scope.value.faculty_id) params.faculty_id = scope.value.faculty_id
+    else if (scope.value.university_id) params.university_id = scope.value.university_id
     const res = await getCpls(params)
     rows.value = res.data
     page.value = 1
