@@ -311,6 +311,9 @@ def _generate_recommendation(kode: str, avg_d, avg_m) -> str:
 @router.get("")
 async def list_reports(
     course_id: Optional[int] = None,
+    program_id: Optional[int] = None,
+    faculty_id: Optional[int] = None,
+    university_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -330,6 +333,14 @@ async def list_reports(
         q = select(DiagnosticReport).where(
             DiagnosticReport.generated_by == current_user.id
         )
+    if program_id:
+        q = q.where(DiagnosticReport.program_id == program_id)
+    if university_id:
+        q = q.where(DiagnosticReport.university_id == university_id)
+    if faculty_id:
+        q = q.where(DiagnosticReport.program_id.in_(
+            select(Program.id).where(Program.faculty_id == faculty_id)
+        ))
     if course_id:
         q = q.where(DiagnosticReport.course_id == course_id)
     q = q.order_by(DiagnosticReport.generated_at.desc())

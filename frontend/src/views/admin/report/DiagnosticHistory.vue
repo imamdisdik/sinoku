@@ -6,10 +6,7 @@
     </div>
 
     <div class="toolbar">
-      <select v-model.number="filterCourse" @change="fetchData" class="filter-input">
-        <option :value="null">Semua Mata Kuliah</option>
-        <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
-      </select>
+      <ScopeFilter show-course @change="onScope" />
     </div>
 
     <div class="table-wrap">
@@ -88,17 +85,20 @@ import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { getReports, generateReport, deleteReport, getCourses, getMyCourses } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
 
 const router = useRouter()
 const ui = useUiStore()
 const auth = useAuthStore()
 
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 const rows = ref<any[]>([])
 const courses = ref<any[]>([])
 const loading = ref(true)
 const generating = ref(false)
 const showWizard = ref(false)
-const filterCourse = ref<number | null>(null)
+const scope = ref<Scope>({ university_id: null, faculty_id: null, program_id: null, course_id: null })
+function onScope(s: Scope) { scope.value = s; fetchData() }
 
 const wForm = ref({
   title: '',
@@ -120,7 +120,10 @@ async function fetchData() {
   loading.value = true
   try {
     const params: any = {}
-    if (filterCourse.value) params.course_id = filterCourse.value
+    if (scope.value.course_id) params.course_id = scope.value.course_id
+    else if (scope.value.program_id) params.program_id = scope.value.program_id
+    else if (scope.value.faculty_id) params.faculty_id = scope.value.faculty_id
+    else if (scope.value.university_id) params.university_id = scope.value.university_id
     const res = await getReports(params)
     rows.value = res.data
   } finally { loading.value = false }

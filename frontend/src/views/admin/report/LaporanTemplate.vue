@@ -4,10 +4,7 @@
     <div class="page-header no-print">
       <h1 class="page-title">Laporan Template CIPP</h1>
       <div class="filter-bar">
-        <select v-model.number="courseId" class="inp" @change="onCourseChange">
-          <option :value="null">— Pilih Mata Kuliah —</option>
-          <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.kode_mk }} — {{ c.nama_id }}</option>
-        </select>
+        <ScopeFilter show-course @change="onScopeSel" />
         <select v-model="role" class="inp">
           <option value="semua">Mahasiswa &amp; Dosen</option>
           <option value="mahasiswa">Mahasiswa</option>
@@ -95,6 +92,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useUiStore } from '@/stores/ui'
 import { getCourses, getMyCourses, getCourseLecturers, getTemplateReportData } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
+import ScopeFilter from '@/components/common/ScopeFilter.vue'
+
+type Scope = { university_id: number|null; faculty_id: number|null; program_id: number|null; course_id: number|null }
 
 const ui = useUiStore()
 const auth = useAuthStore()
@@ -144,6 +144,11 @@ async function generate() {
 }
 
 function printReport() { window.print() }
+
+async function onScopeSel(s: Scope) {
+  courseId.value = s.course_id
+  await onCourseChange()
+}
 
 async function onCourseChange() {
   lecturerId.value = null
