@@ -12,7 +12,7 @@ from app.models.auth import User
 from app.models.response import Response
 from app.models.report import DiagnosticReport
 from app.schemas.academic import (
-    UniversityCreate, UniversityUpdate, UniversityOut, PagedUniversity,
+    UniversityCreate, UniversityUpdate, UniversityOut, PagedUniversity, LogoUpdate,
     FacultyCreate, FacultyUpdate, FacultyOut, PagedFaculty,
     ProgramCreate, ProgramUpdate, ProgramOut, PagedProgram,
     CourseCreate, CourseUpdate, CourseOut, PagedCourse,
@@ -84,6 +84,21 @@ async def delete_university(uid: int, db: AsyncSession = Depends(get_db), _=Depe
         raise HTTPException(404, "Universitas tidak ditemukan")
     await db.delete(u)
     await db.commit()
+
+
+@router.put("/universities/{uid}/logo", response_model=UniversityOut)
+async def update_university_logo(uid: int, body: LogoUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(require_superadmin_or_admin)):
+    """Set/hapus logo universitas. Superadmin: univ mana pun; Admin Universitas: miliknya."""
+    u = await db.get(University, uid)
+    if not u:
+        raise HTTPException(404, "Universitas tidak ditemukan")
+    if current_user.role != "superadmin":
+        if not (current_user.role == "admin_universitas" and current_user.university_id == uid):
+            raise HTTPException(403, "Di luar cakupan Anda")
+    u.logo_url = body.logo_url
+    await db.commit()
+    await db.refresh(u)
+    return u
 
 
 # ══════════════ FACULTY ═══════════════════════════════════════════════════════

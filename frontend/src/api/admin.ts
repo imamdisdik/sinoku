@@ -6,8 +6,10 @@ export const getProblemHeatmap = (params?: object) => api.get('/admin/dashboard/
 
 // Universities
 export const getUniversities = (params?: object) => api.get('/admin/universities', { params })
+export const getUniversity = (id: number) => api.get(`/admin/universities/${id}`)
 export const createUniversity = (data: object) => api.post('/admin/universities', data)
 export const updateUniversity = (id: number, data: object) => api.put(`/admin/universities/${id}`, data)
+export const updateUniversityLogo = (id: number, logo_url: string | null) => api.put(`/admin/universities/${id}/logo`, { logo_url })
 export const deleteUniversity = (id: number) => api.delete(`/admin/universities/${id}`)
 
 // Faculties

@@ -85,6 +85,19 @@
               <label>Tahun Berdiri</label>
               <input v-model.number="form.tahun_berdiri" type="number" class="form-input" />
             </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Logo Universitas</label>
+              <div class="logo-row">
+                <img v-if="form.logo_url" :src="form.logo_url" class="logo-preview" alt="Logo" />
+                <div v-else class="logo-placeholder">Belum ada logo</div>
+                <div class="logo-actions">
+                  <input ref="logoInput" type="file" accept="image/*" style="display:none" @change="onLogoChange" />
+                  <button type="button" class="btn-cancel" @click="logoInput?.click()">Pilih Gambar</button>
+                  <button v-if="form.logo_url" type="button" class="btn-delete" @click="form.logo_url = ''">Hapus</button>
+                </div>
+              </div>
+              <span class="hint">PNG/JPG/SVG, otomatis diperkecil. Tampil di sidebar, kop laporan & halaman survei.</span>
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn-cancel" @click="showModal=false">Batal</button>
@@ -111,7 +124,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { getUniversities, createUniversity, updateUniversity, deleteUniversity } from '@/api/admin'
+import { fileToLogoDataUri } from '@/composables/useImageUpload'
 
+const logoInput = ref<HTMLInputElement | null>(null)
 const rows = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -126,8 +141,16 @@ const showConfirm = ref(false)
 const editing = ref<any>(null)
 const deleteTarget = ref<any>(null)
 
-const defaultForm = () => ({ nama: '', nama_singkat: '', jenis: 'negeri', kota: '', provinsi: '', website: '', akreditasi: '', tahun_berdiri: null as number | null })
+const defaultForm = () => ({ nama: '', nama_singkat: '', jenis: 'negeri', kota: '', provinsi: '', website: '', akreditasi: '', tahun_berdiri: null as number | null, logo_url: '' as string | null })
 const form = ref(defaultForm())
+
+async function onLogoChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try { form.value.logo_url = await fileToLogoDataUri(file) }
+  catch (err: any) { alert(err.message || 'Gagal memuat gambar') }
+  if (logoInput.value) logoInput.value.value = ''
+}
 
 async function fetchData() {
   loading.value = true
@@ -193,6 +216,11 @@ onMounted(fetchData)
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label { font-size: 12px; font-weight: 600; color: #4a5568; }
 .form-input { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; }
+.logo-row { display: flex; align-items: center; gap: 14px; }
+.logo-preview { width: 56px; height: 56px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; padding: 4px; }
+.logo-placeholder { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border: 1px dashed #cbd5e0; border-radius: 8px; font-size: 10px; color: #a0aec0; text-align: center; }
+.logo-actions { display: flex; gap: 8px; }
+.hint { font-size: 11px; color: #a0aec0; margin-top: 4px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .confirm-text { font-size: 14px; color: #4a5568; margin-bottom: 20px; line-height: 1.6; }
 </style>

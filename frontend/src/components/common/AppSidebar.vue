@@ -5,10 +5,18 @@
   <aside class="sidebar" :class="{ collapsed: ui.sidebarCollapsed, 'mobile-open': ui.sidebarMobileOpen }">
     <!-- Logo + tombol collapse -->
     <div class="sidebar-logo">
-      <span class="logo-icon">汉</span>
-      <span class="logo-text" v-show="!ui.sidebarCollapsed">SINOKU</span>
+      <img v-if="univLogo" :src="univLogo" class="univ-logo" alt="Logo" />
+      <span v-else class="logo-icon">汉</span>
+      <span class="logo-text" v-show="!ui.sidebarCollapsed">{{ univName || 'SINOKU' }}</span>
       <button class="collapse-btn" @click="ui.toggleSidebarCollapsed()" :title="ui.sidebarCollapsed ? 'Perluas' : 'Ciutkan'">
         {{ ui.sidebarCollapsed ? '»' : '«' }}
+      </button>
+    </div>
+    <!-- Admin Universitas: ubah logo universitasnya -->
+    <div v-if="canManageLogo && !ui.sidebarCollapsed" class="logo-manage">
+      <input ref="logoInput" type="file" accept="image/*" style="display:none" @change="onLogoUpload" />
+      <button class="logo-edit-btn" @click="logoInput?.click()" :disabled="logoBusy">
+        {{ logoBusy ? 'Menyimpan...' : (univLogo ? '✎ Ubah logo' : '+ Logo universitas') }}
       </button>
     </div>
 
@@ -45,17 +53,54 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useRouter, useRoute } from 'vue-router'
+import { getUniversity, updateUniversityLogo } from '@/api/admin'
+import { fileToLogoDataUri } from '@/composables/useImageUpload'
 
 const auth = useAuthStore()
 const ui = useUiStore()
 const { user, role } = storeToRefs(auth)
 const router = useRouter()
 const route = useRoute()
+
+// ── Logo universitas (sidebar) ──────────────────────────────────────────────
+const univLogo = ref<string | null>(null)
+const univName = ref<string>('')
+const logoInput = ref<HTMLInputElement | null>(null)
+const logoBusy = ref(false)
+const canManageLogo = computed(() => role.value === 'admin_universitas' && !!user.value?.university_id)
+
+async function loadUnivLogo() {
+  const uid = user.value?.university_id
+  if (!uid) return
+  try {
+    const res = await getUniversity(uid)
+    univLogo.value = res.data.logo_url || null
+    univName.value = res.data.nama_singkat || ''
+  } catch { /* abaikan */ }
+}
+
+async function onLogoUpload(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file || !user.value?.university_id) return
+  logoBusy.value = true
+  try {
+    const dataUri = await fileToLogoDataUri(file)
+    const res = await updateUniversityLogo(user.value.university_id, dataUri)
+    univLogo.value = res.data.logo_url || null
+  } catch (err: any) {
+    alert(err.response?.data?.detail || err.message || 'Gagal mengunggah logo')
+  } finally {
+    logoBusy.value = false
+    if (logoInput.value) logoInput.value.value = ''
+  }
+}
+
+onMounted(loadUnivLogo)
 
 // Active: Dashboard (exact) hanya di /admin; lainnya termasuk sub-rute (mis. /admin/reports/123)
 function isActive(to: string, exact?: boolean) {
@@ -140,7 +185,7 @@ async function doLogout() {
   display: flex; flex-direction: column; position: fixed; top: 0; left: 0; z-index: 100;
   transition: width .2s ease, transform .25s ease;
 }
-.sidebar-logo, .sidebar-user, .sidebar-footer { flex-shrink: 0; }
+.sidebar-logo, .sidebar-user, .sidebar-footer, .logo-manage { flex-shrink: 0; }
 .sidebar.collapsed { width: 64px; }
 
 .sidebar-logo {
@@ -149,6 +194,11 @@ async function doLogout() {
 }
 .sidebar.collapsed .sidebar-logo { justify-content: center; padding: 18px 8px; }
 .logo-icon { font-size: 22px; color: #63b3ed; flex-shrink: 0; }
+.univ-logo { width: 30px; height: 30px; object-fit: contain; border-radius: 6px; background: #fff; padding: 2px; flex-shrink: 0; }
+.logo-manage { padding: 8px 16px 0; }
+.logo-edit-btn { width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e0; font-size: 11px; padding: 6px; border-radius: 6px; cursor: pointer; }
+.logo-edit-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.logo-edit-btn:disabled { opacity: .5; cursor: not-allowed; }
 .logo-text { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 1px; }
 .collapse-btn {
   margin-left: auto; background: rgba(255,255,255,0.08); border: none; color: #cbd5e0;

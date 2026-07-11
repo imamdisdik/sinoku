@@ -18,6 +18,7 @@ class University(Base):
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
     akreditasi: Mapped[str | None] = mapped_column(String(10), nullable=True)
     tahun_berdiri: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)  # data URI (base64) atau URL
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

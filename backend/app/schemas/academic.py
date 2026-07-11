@@ -10,7 +10,12 @@ class UniversityPublic(BaseModel):
     nama_singkat: str
     kota: str
     provinsi: str
+    logo_url: Optional[str] = None
     model_config = {"from_attributes": True}
+
+
+class LogoUpdate(BaseModel):
+    logo_url: Optional[str] = None
 
 
 class ProgramPublic(BaseModel):
@@ -41,6 +46,7 @@ class UniversityCreate(BaseModel):
     website: Optional[str] = None
     akreditasi: Optional[str] = None
     tahun_berdiri: Optional[int] = None
+    logo_url: Optional[str] = None
 
 
 class UniversityUpdate(BaseModel):
@@ -52,6 +58,7 @@ class UniversityUpdate(BaseModel):
     website: Optional[str] = None
     akreditasi: Optional[str] = None
     tahun_berdiri: Optional[int] = None
+    logo_url: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -65,6 +72,7 @@ class UniversityOut(BaseModel):
     website: Optional[str]
     akreditasi: Optional[str]
     tahun_berdiri: Optional[int]
+    logo_url: Optional[str] = None
     is_active: bool
     created_at: datetime
     model_config = {"from_attributes": True}
