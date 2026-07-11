@@ -35,7 +35,7 @@
         <tbody>
           <tr v-if="loading"><td colspan="7" class="center">Memuat...</td></tr>
           <tr v-else-if="!rows.length"><td colspan="7" class="center">Belum ada data MBKM</td></tr>
-          <tr v-for="r in rows" :key="r.id">
+          <tr v-for="r in paged" :key="r.id">
             <td class="meta">{{ courseName(r.course_id) }}</td>
             <td><span class="badge-program">{{ r.jenis_program }}</span></td>
             <td><strong>{{ r.nama_mitra }}</strong></td>
@@ -54,6 +54,7 @@
         </tbody>
       </table>
     </div>
+    <Pagination v-model:page="page" :total-pages="totalPages" />
 
     <!-- Modal Create/Edit -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal=false">
@@ -108,10 +109,13 @@
 import { ref, onMounted } from 'vue'
 import { useUiStore } from '@/stores/ui'
 import { getMbkmList, createMbkm, updateMbkm, deleteMbkm, toggleMbkm, getCourses } from '@/api/admin'
+import Pagination from '@/components/common/Pagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const ui = useUiStore()
 
 const rows = ref<any[]>([])
+const { page, totalPages, paged } = usePagination(rows, 15)
 const courses = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -154,6 +158,7 @@ async function fetchData() {
     if (filterActive.value !== '') params.is_active = filterActive.value === 'true'
     const res = await getMbkmList(params)
     rows.value = res.data
+    page.value = 1
   } finally { loading.value = false }
 }
 

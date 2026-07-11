@@ -20,7 +20,7 @@
         <tbody>
           <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
           <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data CPMK.</td></tr>
-          <template v-for="c in rows" :key="c.id">
+          <template v-for="c in paged" :key="c.id">
             <tr :class="{ 'row-active': expandedId === c.id }">
               <td><span class="badge">{{ c.kode_cpmk }}</span></td>
               <td>{{ c.deskripsi_id }}</td>
@@ -76,6 +76,7 @@
         </tbody>
       </table>
     </div>
+    <Pagination v-model:page="page" :total-pages="totalPages" />
 
     <!-- Modal Create / Edit -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
@@ -136,8 +137,11 @@ import {
   getCourses, getCpls,
   getCpmkCpls, mapCpmkCpls, unmapCpmkCpl,
 } from '@/api/admin'
+import Pagination from '@/components/common/Pagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const rows = ref<any[]>([])
+const { page, totalPages, paged } = usePagination(rows, 15)
 const courseList = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -176,6 +180,7 @@ async function fetchData() {
     const params = filterCourse.value ? { course_id: filterCourse.value } : {}
     const res = await getCpmks(params)
     rows.value = res.data
+    page.value = 1
     if (expandedId.value && !rows.value.find((r: any) => r.id === expandedId.value)) {
       expandedId.value = null
     }

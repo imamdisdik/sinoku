@@ -40,7 +40,7 @@
         <tbody>
           <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
           <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada skema penilaian</td></tr>
-          <tr v-for="r in rows" :key="r.id">
+          <tr v-for="r in paged" :key="r.id">
             <td class="meta">{{ courseName(r.course_id) }}</td>
             <td><strong>{{ r.nama_komponen }}</strong></td>
             <td><span :class="tipeBadge(r.tipe)">{{ r.tipe }}</span></td>
@@ -55,6 +55,7 @@
         </tbody>
       </table>
     </div>
+    <Pagination v-model:page="page" :total-pages="totalPages" />
 
     <!-- Modal Create/Edit -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal=false">
@@ -192,11 +193,14 @@ import {
   getRubrics, createRubric, updateRubric, deleteRubric,
   getCourses, getCpmks,
 } from '@/api/admin'
+import Pagination from '@/components/common/Pagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const ui = useUiStore()
 
 // ── State Skema ────────────────────────────────────────────────────────────
 const rows = ref<any[]>([])
+const { page, totalPages, paged } = usePagination(rows, 15)
 const courses = ref<any[]>([])
 const cpmks = ref<any[]>([])
 const loading = ref(true)
@@ -250,6 +254,7 @@ async function fetchData() {
     if (filterCourse.value) params.course_id = filterCourse.value
     const res = await getSchemes(params)
     rows.value = res.data
+    page.value = 1
   } finally { loading.value = false }
 }
 

@@ -18,7 +18,7 @@
         <tbody>
           <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
           <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada data CPL.</td></tr>
-          <tr v-for="c in rows" :key="c.id">
+          <tr v-for="c in paged" :key="c.id">
             <td><span class="badge">{{ c.kode_cpl }}</span></td>
             <td>{{ c.deskripsi_id }}</td>
             <td style="color:#718096;font-size:12px">{{ c.deskripsi_zh }}</td>
@@ -32,6 +32,7 @@
         </tbody>
       </table>
     </div>
+    <Pagination v-model:page="page" :total-pages="totalPages" />
 
     <div v-if="showModal" class="modal-overlay" @click.self="showModal=false">
       <div class="modal">
@@ -89,8 +90,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getCpls, createCpl, updateCpl, deleteCpl, getPrograms } from '@/api/admin'
+import Pagination from '@/components/common/Pagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const rows = ref<any[]>([])
+const { page, totalPages, paged } = usePagination(rows, 15)
 const programList = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -113,6 +117,7 @@ async function fetchData() {
     const params = filterProgram.value ? { program_id: filterProgram.value } : {}
     const res = await getCpls(params)
     rows.value = res.data
+    page.value = 1
   } finally { loading.value = false }
 }
 

@@ -33,7 +33,7 @@
         <tbody>
           <tr v-if="loading"><td colspan="6" class="center">Memuat...</td></tr>
           <tr v-else-if="!rows.length"><td colspan="6" class="center">Belum ada RPS</td></tr>
-          <tr v-for="r in rows" :key="r.id">
+          <tr v-for="r in paged" :key="r.id">
             <td>{{ courseName(r.course_id) }}</td>
             <td>{{ r.tahun_akademik }}</td>
             <td>{{ r.semester }}</td>
@@ -48,6 +48,7 @@
         </tbody>
       </table>
     </div>
+    <Pagination v-model:page="page" :total-pages="totalPages" />
 
     <!-- Modal Create/Edit -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal=false">
@@ -106,12 +107,15 @@ import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { getRpsList, createRps, updateRps, deleteRps, getCourses, getMyCourses } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
+import Pagination from '@/components/common/Pagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const router = useRouter()
 const ui = useUiStore()
 const auth = useAuthStore()
 
 const rows = ref<any[]>([])
+const { page, totalPages, paged } = usePagination(rows, 15)
 const courses = ref<any[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -142,6 +146,7 @@ async function fetchData() {
     if (filterStatus.value) params.status = filterStatus.value
     const res = await getRpsList(params)
     rows.value = res.data
+    page.value = 1
   } finally { loading.value = false }
 }
 
