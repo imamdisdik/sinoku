@@ -20,6 +20,10 @@ PEMAKAIAN (di VPS):
   docker compose exec -T backend python clean_survey_data.py --date 2026-07-11
   docker compose exec -T backend python clean_survey_data.py --date 2026-07-11 --delete
 
+  # (opsional) batasi ke peran tertentu: dosen SAJA atau mahasiswa SAJA
+  docker compose exec -T backend python clean_survey_data.py --role dosen
+  docker compose exec -T backend python clean_survey_data.py --role dosen --delete
+
 SARAN: backup dulu sebelum menghapus:
   docker compose exec -T db pg_dump -U sinoku sinoku_db > backup_sebelum_hapus.sql
 """
@@ -39,6 +43,7 @@ from app.models.academic import Course, Program, University
 def parse_args():
     do_delete = "--delete" in sys.argv
     only_date = None
+    only_role = None
     if "--date" in sys.argv:
         i = sys.argv.index("--date")
         try:
@@ -47,11 +52,18 @@ def parse_args():
         except Exception:
             print("Format --date salah. Pakai: --date YYYY-MM-DD")
             sys.exit(1)
-    return do_delete, only_date
+    if "--role" in sys.argv:
+        i = sys.argv.index("--role")
+        val = sys.argv[i + 1] if i + 1 < len(sys.argv) else ""
+        if val not in ("dosen", "mahasiswa"):
+            print("Nilai --role harus 'dosen' atau 'mahasiswa'.")
+            sys.exit(1)
+        only_role = val
+    return do_delete, only_date, only_role
 
 
 async def main():
-    do_delete, only_date = parse_args()
+    do_delete, only_date, only_role = parse_args()
 
     async with AsyncSessionLocal() as db:
         # Query respons + konteks untuk ditampilkan
@@ -64,6 +76,8 @@ async def main():
         )
         if only_date:
             q = q.where(func.date(Response.submitted_at) == only_date)
+        if only_role:
+            q = q.where(Response.role == only_role)
         q = q.order_by(Response.submitted_at)
         rows = (await db.execute(q)).all()
 
@@ -87,8 +101,8 @@ async def main():
 
         # Laporan diagnostik terkait (opsional dibersihkan)
         rep_q = select(func.count()).select_from(DiagnosticReport)
-        if only_date:
-            # laporan tak punya submitted_at; saat pakai --date, laporan TIDAK disentuh
+        if only_date or only_role:
+            # laporan tak difilter per tanggal/peran → TIDAK disentuh saat pakai filter
             n_rep = 0
         else:
             n_rep = (await db.execute(rep_q)).scalar()
@@ -103,8 +117,8 @@ async def main():
             return
 
         # ── EKSEKUSI HAPUS ──────────────────────────────────────────
-        # 1) Laporan diagnostik (hanya bila tanpa filter tanggal)
-        if not only_date:
+        # 1) Laporan diagnostik (hanya bila tanpa filter tanggal/peran)
+        if not only_date and not only_role:
             await db.execute(delete(DiagnosticReport))
         # 2) Respons (cascade ke item/jawaban/kode anonim)
         await db.execute(delete(Response).where(Response.id.in_(response_ids)))
