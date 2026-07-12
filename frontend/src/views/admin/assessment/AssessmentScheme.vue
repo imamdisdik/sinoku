@@ -99,8 +99,8 @@
       </div>
     </div>
 
-    <!-- Panel Rubrik (inline, di bawah) -->
-    <div v-if="activeScheme" class="rubric-panel">
+    <!-- Panel Rubrik -->
+    <div v-if="activeScheme" ref="rubricPanel" class="rubric-panel">
       <div class="rubric-header">
         <h2 class="rubric-title">Rubrik: {{ activeScheme.nama_komponen }}</h2>
         <div style="display:flex;gap:8px;align-items:center">
@@ -183,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useUiStore } from '@/stores/ui'
 import {
   getSchemes, createScheme, updateScheme, deleteScheme,
@@ -308,6 +308,7 @@ async function doDelete(r: any) {
 
 // ── State Rubrik ───────────────────────────────────────────────────────────
 const activeScheme = ref<any>(null)
+const rubricPanel = ref<HTMLElement | null>(null)
 const rubrics = ref<any[]>([])
 const rubricLoading = ref(false)
 const savingRubric = ref(false)
@@ -339,6 +340,8 @@ function levelBadge(l: string) {
 async function goRubric(scheme: any) {
   activeScheme.value = scheme
   await loadRubrics(scheme.id)
+  await nextTick()
+  rubricPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function loadRubrics(schemeId: number) {
